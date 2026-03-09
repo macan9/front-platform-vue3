@@ -3,27 +3,27 @@ import { globals_config } from '/public/config/globals_config'
 
 // 用户登录
 export const loginReq = async (data)=>{
-  return await postApi('/api/v1/login/',data)
+  return await postApi('/api/users/login/',data)
 }
 
 // 用户注册
 export const registerReq = async (data)=>{
-  return await postApi('/api/v1/users/register/',data)
+  return await postApi('/api/v1/users/',data)
 }
 
 // 用户列表查询
 export const userListGet = async ()=>{
-  return await getApi('/api/v1/users/list/')
+  return await getApi('/api/v1/users/')
 }
 
 // 个人信息查询
 export const userInfoGet = async (id)=>{
-  return await getApi(`/api/v1/users/detail/${id}/`)
+  return await getApi(`/api/v1/users/${id}/`)
 }
 
 // 个人信息修改
 export const userInfoPut = async (id,data)=>{
-  return await putApi(`/api/v1/users/detail/${id}/`,data)
+  return await putApi(`/api/users/${id}/`,data)
 }
 
 // 用户删除
