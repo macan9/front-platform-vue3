@@ -6,6 +6,7 @@ import { ElMessage } from 'element-plus'
 import createGeometry from './utils/createGeometry.js'
 import { onMounted, onUnmounted } from 'vue';
 let renderLoop = false
+let rafId = null
 let scene = null // 场景
 let camera = null // 相机
 let axes = null // 坐标轴
@@ -173,7 +174,12 @@ function createRenderer() {
   // 开启阴影
   renderer.shadowMap.enabled = true
   // 将渲染结果添加到dom元素中
-  document.getElementById('webgl-output').appendChild(renderer.domElement)
+  const container = document.getElementById('webgl-output')
+  if (container) {
+    // 避免重复进入路由时叠加多个 canvas
+    container.innerHTML = ''
+    container.appendChild(renderer.domElement)
+  }
   // 使用指定的摄像机来渲染场景
   renderer.render(scene, camera)
 }
@@ -199,7 +205,59 @@ function animate() {
   sphere3.position.z = 40 * Math.sin(guiConfiguration.sphereInitVelocity - 0.9)
 //   console.log(scene, camera,'---scene, camera---')
   renderer.render(scene, camera)
-  renderLoop && requestAnimationFrame(animate)
+  if (renderLoop) rafId = requestAnimationFrame(animate)
+}
+
+function disposeMaterial(mat) {
+  if (!mat) return
+  // 释放材质上挂的贴图（如果未来加了纹理，这里能兜底）
+  for (const key in mat) {
+    const value = mat[key]
+    if (value && value.isTexture) value.dispose()
+  }
+  mat.dispose?.()
+}
+
+function disposeThree() {
+  // 停止动画循环
+  renderLoop = false
+  if (rafId != null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+
+  // 释放场景内的几何体/材质等 GPU 资源
+  if (scene) {
+    scene.traverse((obj) => {
+      if (obj?.geometry) obj.geometry.dispose?.()
+      if (obj?.material) {
+        if (Array.isArray(obj.material)) obj.material.forEach(disposeMaterial)
+        else disposeMaterial(obj.material)
+      }
+    })
+    scene.clear()
+  }
+
+  // 移除 canvas，并释放 renderer / WebGL 上下文
+  if (renderer) {
+    const dom = renderer.domElement
+    renderer.dispose?.()
+    // 强制丢弃上下文，避免反复进出导致 GPU 内存累积
+    renderer.forceContextLoss?.()
+    renderer = null
+
+    if (dom?.parentNode) dom.parentNode.removeChild(dom)
+  }
+
+  scene = null
+  camera = null
+  axes = null
+  plane = null
+  spotLight = null
+  cube = null
+  sphere = null
+  sphere2 = null
+  sphere3 = null
 }
 // 获取pfs状态
 // function getStats() {
@@ -261,7 +319,7 @@ onMounted(() => {
 //   configGUI()
 })
 onUnmounted(() => {
-	renderLoop = false
+  disposeThree()
   // const guiDom = gui.domElement
   // guiDom.parentNode.removeChild(guiDom)
 
