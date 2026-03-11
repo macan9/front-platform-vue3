@@ -38,7 +38,7 @@ export const userLogGet = async (params) => {
 		url_string += k + "=" + params[k] + "&"
 	})
 	url_string = url_string.slice(0, -1)
-	return await getApi(`/api/users/log/${url_string}`)
+	return await getApi(`/api/users/login-logs/${url_string}`)
 }
 
 

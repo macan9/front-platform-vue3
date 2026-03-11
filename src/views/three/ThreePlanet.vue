@@ -5,70 +5,70 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { onMounted,onUnmounted } from 'vue';
 
 
-// 行星配置
+// 行星配置（本地纹理，存放在 public/textures 目录）
 const planetsConfiguration = [
   {
     name: '太阳',
     radius: 16,
     distance: 0,
     speed: 0,
-    mapImg: 'https://assets.fedtop.com/picbed/sun_color.jpg',
+    mapImg: '/textures/sun_color.jpg',
   },
   {
     name: '水星',
     radius: 0.5,
     distance: 24,
     speed: 0.02,
-    mapImg: 'https://assets.fedtop.com/picbed/mercury_color.jpg',
+    mapImg: '/textures/mercury_color.jpg',
   },
   {
     name: '金星',
     radius: 0.8,
     distance: 26,
     speed: 0.015,
-    mapImg: 'https://assets.fedtop.com/picbed/venus_color.jpg',
+    mapImg: '/textures/venus_color.jpg',
   },
   {
     name: '地球',
     radius: 1,
     distance: 28,
     speed: 0.03,
-    mapImg: 'https://assets.fedtop.com/picbed/earth_color.jpg',
+    mapImg: '/textures/earth_color.jpg',
   },
   {
     name: '火星',
     radius: 0.8,
     distance: 30,
     speed: 0.025,
-    mapImg: 'https://assets.fedtop.com/picbed/mars_color.jpg',
+    mapImg: '/textures/mars_color.jpg',
   },
   {
     name: '木星',
     radius: 3,
     distance: 40,
     speed: 0.02,
-    mapImg: 'https://assets.fedtop.com/picbed/jupiter_color.jpg',
+    mapImg: '/textures/jupiter_color.jpg',
   },
   {
     name: '土星',
     radius: 3,
     distance: 50,
     speed: 0.015,
-    mapImg: 'https://assets.fedtop.com/picbed/saturn_color.jpg',
+    mapImg: '/textures/saturn_color.jpg',
   },
   {
     name: '天王星',
     radius: 1.5,
     distance: 60,
     speed: 0.01,
-    mapImg: 'https://assets.fedtop.com/picbed/uranus_color.jpg',
+    mapImg: '/textures/uranus_color.jpg',
   },
   {
     name: '海王星',
     radius: 1.1,
     distance: 70,
     speed: 0.008,
-    mapImg: 'https://assets.fedtop.com/picbed/neptune_color.jpg',
+    mapImg: '/textures/neptune_color.jpg',
   },
 ]
 
@@ -139,12 +139,7 @@ const planets = planetsConfiguration.map((planet, index) => {
 function createUniverse() {
   const universeGeometry = new THREE.SphereGeometry(500, 100, 100)
   const universeMaterial = new THREE.MeshBasicMaterial({
-    map: new THREE.TextureLoader().load(
-      // 'https://assets.fedtop.com/picbed/202210152003603.png',
-      // 'https://assets.fedtop.com/picbed/wallhaven-dp2y7g_1280x720.png',
-      'https://assets.fedtop.com/picbed/wallhaven-13ggqw_1280x720.png',
-      // 'https://assets.fedtop.com/picbed/wallhaven-g7r3vd.jpg',
-    ),
+    map: new THREE.TextureLoader().load('/textures/universe_bg.png'),
     side: THREE.DoubleSide, // 双面显示
   })
   const universeMesh = new THREE.Mesh(universeGeometry, universeMaterial)

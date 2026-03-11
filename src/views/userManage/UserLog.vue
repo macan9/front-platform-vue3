@@ -15,8 +15,9 @@
             </div>
             <el-table :data="filterTableData" style="width: 100%">
                 <el-table-column label="用户名" prop="username" width="100" />
-                <el-table-column label="ip" prop="ip" width="180" />
-                <el-table-column label="登录状态" prop="status" width="150">
+                <el-table-column label="ip" prop="ip" width="160" />
+                <el-table-column label="登录时间" prop="login_time" width="200" />
+                <el-table-column label="登录状态" prop="status" width="120">
                     <template #default="scope">
                         {{ scope.row.status ? "登录成功" : "登录失败" }}
                     </template>
@@ -91,9 +92,20 @@ const getUserLogData = async () => {
         start_time: DailyTimeFormat(start),
         end_time: DailyTimeFormat(end),
     }
-    const { data, code, count } = await userLogGet(params)
-    tableData.value = data
-    total.value = count
+    const res = await userLogGet(params)
+    const { code, data } = res
+    const { list, pagination } = data
+    // 后端字段映射：created_at/success/message -> login_time/status/fail_reason，供表格显示使用
+    tableData.value = Array.isArray(list)
+        ? list.map(item => ({
+            ...item,
+            login_time: DailyTimeFormat(new Date(item.created_at)),
+            status: item.success === 1,
+            fail_reason: item.success === 1 ? '' : item.message,
+        }))
+        : []
+    // 根据后端字段名来，比如 pagination.total / pagination.count
+    total.value = pagination?.total ?? 0
     return code
 }
 
