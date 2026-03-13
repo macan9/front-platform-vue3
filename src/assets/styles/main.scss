@@ -1,5 +1,5 @@
-@import './scss/login';
-@import './scss/markers';
+@use './scss/login' as login;
+@use './scss/markers' as markers;
 
 * {
 	margin: 0px; 

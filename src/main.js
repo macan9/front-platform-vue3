@@ -15,7 +15,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 // 定义 app 
 const app = createApp(App)
 
-app.config.devtools = true
+// app.config.devtools = true
 
 // 注册 element icon 
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

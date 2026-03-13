@@ -42,7 +42,7 @@
     import { menu_left_config } from '@/common/config/menu_left_config'
     import { useRouter } from 'vue-router';
     import { reactive , watch} from 'vue';
-    import {  defineProps, toRef} from 'vue'
+    import { defineProps, toRef} from 'vue'
     const router = useRouter();
 
     // data

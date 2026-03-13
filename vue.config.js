@@ -2,27 +2,24 @@ const { defineConfig } = require('@vue/cli-service')
 // import { globals_config } from '/public/config/globals_config'
 const path = require('path');
 module.exports = defineConfig({
-  transpileDependencies: true
-})
-module.exports = {
-  devServer: {
+  transpileDependencies: true,
+   devServer: {
     port: 8010,
     hot: true,
     proxy: {
       '/api': {
-        target: 'http://139.196.104.120:443/',  // 目标代理服务器的域名
-        changeOrigin: true,  // 支持跨域
+        target: 'http://139.196.158.225:3000',
+        changeOrigin: true,
         secure: false,
-        pathRewrite: {
-          '^/api': '/api'  // 将请求地址中的 /api 替换为空字符
-        }
+        // pathRewrite: { '^/api': '' } // 移除，因为线上API带 /api
       },
+      
       '/gitee': {
-        target: 'https://gitee.com/',  
-        changeOrigin: true,  
+        target: 'https://gitee.com/',
+        changeOrigin: true,
         secure: false,
         pathRewrite: {
-          '^/gitee': '' 
+          '^/gitee': ''
         }
       }
     }
@@ -46,11 +43,10 @@ module.exports = {
   // 引入公共的  scss 文件
   css: {
     loaderOptions: {
-      scss: {
-        additionalData: `@import "@/assets/styles/main.scss";`,
+      scss: { 
+        additionalData: ` @use '@/assets/styles/main' as main;`,
       },
     },
   },
-  
-  
-};
+})
+
