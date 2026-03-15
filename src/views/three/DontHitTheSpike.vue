@@ -15,7 +15,19 @@
 				<div class="modal-card">
 					<h2 class="modal-title">{{ gameOver ? "游戏结束！" : "准备开始" }}</h2>
 					<p class="modal-text" v-if="gameOver">得分：{{ lastScore }}</p>
-					<button class="modal-btn" type="button" @click="requestStart">{{ gameOver ? "重新开始" : "开始游戏" }}</button>
+					<div class="modal-actions">
+						<button class="modal-btn" type="button" @click="requestStart">{{ gameOver ? "重新开始" : "开始游戏" }}</button>
+						<button
+							v-if="gameOver"
+							class="modal-btn"
+							type="button"
+							:disabled="savingScore || scoreRecorded"
+							@click="recordScore"
+						>
+							{{ recordBtnText }}
+						</button>
+					</div>
+					<p v-if="recordError" class="modal-error">{{ recordError }}</p>
 				</div>
 			</div>
 	</div>
@@ -25,7 +37,11 @@
 <script setup>
 import * as THREE from "three";
 import { gsap } from "gsap";
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { ElMessage } from "element-plus";
+import { DailyTimeFormat } from "@/utils/utils.js";
+import { gameScoreCreateReq } from "@/apis/gameScoreApis.js";
+
 
 // UI 状态 / 挂载容器
 
@@ -38,6 +54,64 @@ const stopped = ref(true);
 const gameOver = ref(false);
 const startRequested = ref(false);
 function requestStart() { startRequested.value = true; }
+const savingScore = ref(false);
+const scoreRecorded = ref(false);
+const lastScoreTime = ref("");
+const recordError = ref("");
+const recordBtnText = computed(() => {
+	if (scoreRecorded.value) return "已记录";
+	if (savingScore.value) return "记录中...";
+	return "记录分数";
+});
+
+const safeParseJson = (str) => {
+	const s = String(str || "").trim();
+	if (!s) return null;
+	try {
+		return JSON.parse(s);
+	} catch {
+		return null;
+	}
+};
+
+const getCurrentUserId = () => {
+	const userInfoObj = safeParseJson(localStorage.getItem("userInfo")) || {};
+	return String(userInfoObj?.user?.id || "");
+};
+
+const recordScore = async () => {
+	if (savingScore.value || scoreRecorded.value) return;
+	recordError.value = "";
+
+	const userId = getCurrentUserId();
+	if (!userId) {
+		ElMessage({ message: "请先登录后再记录分数", type: "warning" });
+		return;
+	}
+
+	const scoreValue = Number(lastScore.value || 0);
+	const scoreTime = lastScoreTime.value || DailyTimeFormat(new Date());
+
+	savingScore.value = true;
+	try {
+		const res = await gameScoreCreateReq({ score: scoreValue, scoreTime, userId });
+		const ok = res?.code === 0 || res?.success === true || !!res?.data;
+		if (!ok) {
+			const msg = res?.message || "记录失败";
+			recordError.value = String(msg);
+			ElMessage({ message: recordError.value, type: "error" });
+			return;
+		}
+
+		scoreRecorded.value = true;
+		ElMessage({ message: "分数已记录", type: "success" });
+	} catch (e) {
+		recordError.value = String(e?.message || "记录失败");
+		ElMessage({ message: recordError.value, type: "error" });
+	} finally {
+		savingScore.value = false;
+	}
+};
 
 let renderer = null;
 let rafId = 0;
@@ -73,6 +147,7 @@ onMounted(() => {
 	const tmpPlayerWorldPos = new THREE.Vector3();
 	const tmpDesiredCamPos = new THREE.Vector3();
 	const tmpLookAtPos = new THREE.Vector3();
+	const zAxis = new THREE.Vector3(0, 0, 1);
 
 	// 玩家物理状态
 	const lanes = [-7.5, 0, 7.5];
@@ -124,6 +199,35 @@ onMounted(() => {
 	world.position.y = -worldCenterY;
 	worldPivot.add(world);
 	scene.add(worldPivot);
+
+	// 相机边界：用“旋转后的关卡矩形”的 AABB 约束相机，避免翻转（尤其接近 90°）时相机冲出场景
+	const levelHalfWidth = 15; // wallGeo 的宽度是 30
+	const levelMinY = 0;
+	const levelMaxY = ceilingY;
+	const cameraBoundsPadding = 1.25;
+	const tmpCorner = new THREE.Vector3();
+	const levelAabb = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+	const computeLevelAabb = (angleRad) => {
+		const pivot = worldPivot.position;
+		let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+		const corners = [
+			[-levelHalfWidth, levelMinY],
+			[levelHalfWidth, levelMinY],
+			[-levelHalfWidth, levelMaxY],
+			[levelHalfWidth, levelMaxY],
+		];
+		for (let i = 0; i < corners.length; i++) {
+			tmpCorner.set(corners[i][0], corners[i][1], 0).sub(pivot).applyAxisAngle(zAxis, angleRad).add(pivot);
+			minX = Math.min(minX, tmpCorner.x);
+			maxX = Math.max(maxX, tmpCorner.x);
+			minY = Math.min(minY, tmpCorner.y);
+			maxY = Math.max(maxY, tmpCorner.y);
+		}
+		levelAabb.minX = minX;
+		levelAabb.maxX = maxX;
+		levelAabb.minY = minY;
+		levelAabb.maxY = maxY;
+	};
 
 	const wallGeo = new THREE.BoxGeometry(30, 0.5, 500);
 	const wallMat = new THREE.MeshLambertMaterial({ color: 0x0000aa });
@@ -233,6 +337,9 @@ onMounted(() => {
 		paused.value = false;
 		showLose.value = false;
 		score.value = 0;
+		scoreRecorded.value = false;
+		recordError.value = "";
+		lastScoreTime.value = "";
 
 		// ????/??
 		panSpeed = basePanSpeed;
@@ -320,6 +427,9 @@ onMounted(() => {
 				}, 1000);
 
 				lastScore.value = Math.floor(cones[0].position.z + 30);
+				lastScoreTime.value = DailyTimeFormat(new Date());
+				scoreRecorded.value = false;
+				recordError.value = "";
 				showLose.value = true;
 				if (loseTimeoutId) clearTimeout(loseTimeoutId);
 				loseTimeoutId = setTimeout(() => {
@@ -384,10 +494,20 @@ onMounted(() => {
 			// 灯光与相机跟随
 			light.position.set(10, lightY, player.pos.z + 10);
 			const t = flipVisual.t;
-			worldPivot.rotation.z = t * Math.PI;
+			const flipAngle = t * Math.PI;
+			worldPivot.rotation.z = flipAngle;
 
 			playerMesh.getWorldPosition(tmpPlayerWorldPos);
 			tmpDesiredCamPos.copy(tmpPlayerWorldPos).add(cameraOffset);
+			// 翻转过程中，关卡会绕 Z 轴旋转，玩家的世界坐标会形成圆弧；此时相机简单跟随会冲出场景范围
+			// 将相机位置限制在“旋转后关卡矩形”的 AABB 内，避免相机跳到场景外侧
+			computeLevelAabb(flipAngle);
+			const camMinX = levelAabb.minX + cameraBoundsPadding;
+			const camMaxX = levelAabb.maxX - cameraBoundsPadding;
+			const camMinY = levelAabb.minY + cameraBoundsPadding;
+			const camMaxY = levelAabb.maxY - cameraBoundsPadding;
+			if (camMinX < camMaxX) tmpDesiredCamPos.x = THREE.MathUtils.clamp(tmpDesiredCamPos.x, camMinX, camMaxX);
+			if (camMinY < camMaxY) tmpDesiredCamPos.y = THREE.MathUtils.clamp(tmpDesiredCamPos.y, camMinY, camMaxY);
 			cameraRig.position.lerp(tmpDesiredCamPos, 1 - Math.pow(0.001, dt));
 			tmpLookAtPos.copy(tmpPlayerWorldPos).add(cameraLookOffset);
 			camera.lookAt(tmpLookAtPos);
@@ -632,6 +752,12 @@ onUnmounted(() => {
 			margin: 0 0 1rem 0;
 			color: rgba(252, 186, 3, 0.95);
 		}
+		.modal-actions {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+			align-items: stretch;
+		}
 		.modal-btn {
 			appearance: none;
 			border: 1px solid rgba(252, 186, 3, 0.55);
@@ -641,9 +767,19 @@ onUnmounted(() => {
 			border-radius: 10px;
 			cursor: pointer;
 			font-size: 1rem;
+			width: 100%;
 		}
 		.modal-btn:hover {
 			background: rgba(252, 186, 3, 0.12);
+		}
+		.modal-btn:disabled {
+			opacity: 0.6;
+			cursor: not-allowed;
+		}
+		.modal-error {
+			margin: 0.75rem 0 0 0;
+			color: rgba(255, 120, 120, 0.95);
+			font-size: 0.95rem;
 		}
 	}
   
