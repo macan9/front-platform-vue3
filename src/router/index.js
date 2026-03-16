@@ -16,7 +16,7 @@ const routes = [
       {
         path: '/userEdit',
         name: 'userEdit',
-        component: () => import('@/views/userManage/UserEdit.vue')
+        component: () => import('@/components/user/UserEdit.vue')
       }, {
         path: '/userTable',
         name: 'userTable',

@@ -42,7 +42,7 @@ import { loginOut } from '@/common/plugins/user_manage_methods'
 import { useRouter } from 'vue-router'
 import { userInfoGet } from '@/apis/userApis.js'
 import { globals_config } from '/public/config/globals_config'
-import UserEdit from '@/views/userManage/UserEdit.vue'
+import UserEdit from '@/components/user/UserEdit.vue'
 import { menu_top_config } from '@/common/config/menu_top_config'
 
 const menuVal = localStorage.getItem('topMenuValue')

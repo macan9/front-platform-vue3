@@ -56,7 +56,7 @@
     import { computed, ref, reactive } from 'vue'
     import { ElMessage, ElMessageBox } from 'element-plus'
     import UserRegister from '@/components/user/UserRegister.vue'
-    import UserEdit from './UserEdit.vue'
+    import UserEdit from '../../components/user/UserEdit.vue'
 
 
     const search = ref('')
