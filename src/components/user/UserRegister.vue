@@ -1,179 +1,188 @@
 <template>
-    <el-dialog
-      v-model="visible.attr"
-      title="用户注册"
-      width="480px"
-      class="user-register-style"
-    >
-      <el-form :model="userForm" ref="userRuleFormRef" :rules="userRules" label-width="100px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="userForm.username" placeholder="请输入用户名" />
-        </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="userForm.email" placeholder="请输入邮箱" />
-        </el-form-item>
-        <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="userForm.nickname" placeholder="请输入昵称（可选）" />
-        </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input type="password" v-model="userForm.password" placeholder="请输入密码" />
-        </el-form-item>
-        <el-form-item label="确认密码" prop="check_password">
-          <el-input type="password" v-model="userForm.check_password" placeholder="请再次输入密码" />
-        </el-form-item>
-        <!-- <el-form-item label="用户权限" prop="role">
-          <el-select v-model="userForm.role" placeholder="请选择用户类型">
-            <el-option v-for="item in user_authority" :label="item.label" :value="item.value" :key="item.value"/>
-          </el-select>
-        </el-form-item> -->
-        <el-form-item label="图形验证码" prop="captcha">
-          <div class="captcha-row">
-            <el-input v-model="userForm.captcha" placeholder="请输入验证码" />
-            <img
-              v-if="captchaImg"
-              :src="captchaImg"
-              alt="验证码"
-              class="captcha-img"
-              @click="loadCaptcha"
-            />
-          </div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="closeDialog">取消</el-button>
-          <el-button type="success" @click="registerUser(userRuleFormRef)">
-            确认注册
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
+  <el-dialog
+    v-model="visible.attr"
+    title="用户注册"
+    width="480px"
+    class="user-register-style"
+  >
+    <el-form :model="userForm" ref="userRuleFormRef" :rules="userRules" label-width="100px">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="userForm.username" placeholder="请输入用户名" />
+      </el-form-item>
+      <el-form-item label="邮箱" prop="email">
+        <el-input v-model="userForm.email" placeholder="请输入邮箱" />
+      </el-form-item>
+      <el-form-item label="昵称" prop="nickname">
+        <el-input v-model="userForm.nickname" placeholder="请输入昵称（可选）" />
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input
+          v-model="userForm.password"
+          type="password"
+          show-password
+          autocomplete="new-password"
+          placeholder="至少 8 位，包含大小写字母、数字和特殊字符"
+        />
+      </el-form-item>
+      <el-form-item label="确认密码" prop="check_password">
+        <el-input
+          v-model="userForm.check_password"
+          type="password"
+          show-password
+          autocomplete="new-password"
+          placeholder="请再次输入密码"
+        />
+      </el-form-item>
+      <el-form-item label="图形验证码" prop="captcha">
+        <div class="captcha-row">
+          <el-input v-model="userForm.captcha" placeholder="请输入验证码" />
+          <img
+            v-if="captchaImg"
+            :src="captchaImg"
+            alt="验证码"
+            class="captcha-img"
+            @click="loadCaptcha"
+          />
+        </div>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="closeDialog">取消</el-button>
+        <el-button type="success" @click="registerUser(userRuleFormRef)">
+          确认注册
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="js" setup>
-  import { defineProps, toRef, ref, reactive, watch } from 'vue'
-  import { ElMessage } from 'element-plus'
-  import { registerReq, getCaptcha } from '@/apis/userApis.js'
-  // import { user_authority } from '@/common/plugins/user_config.js'
-  
-  
+import { defineProps, defineEmits, toRef, ref, reactive, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { registerReq, getCaptcha } from '@/apis/userApis.js'
+import { encryptPasswordFields, validatePassword, validateUsername } from '@/common/utils/authSecurity.js'
 
-  const props = defineProps({
-    dialogVisible: {
-      type: Object,
-      default: () => {},
-    },
-  });
-  // toRef toRefs 会产生一个新的引用变量
-  const visible = toRef(props,'dialogVisible')
-  console.log(visible,'visible')
+const props = defineProps({
+  dialogVisible: {
+    type: Object,
+    default: () => {},
+  },
+})
 
-  const userForm = reactive({
-    username: '',
-    email: '',
-    nickname: '',
-    password: '',
-    check_password: '',
-    role: '',
-    description: '',
-    captcha: '',
-    captchaId: '',
-  })
+const emit = defineEmits(['update-user-data'])
+const visible = toRef(props, 'dialogVisible')
 
-  const captchaImg = ref('')
+const userForm = reactive({
+  username: '',
+  email: '',
+  nickname: '',
+  password: '',
+  check_password: '',
+  role: '',
+  description: '',
+  captcha: '',
+  captchaId: '',
+})
 
-  const loadCaptcha = async () => {
-    // 直接用图片地址，添加时间戳防缓存
-    const res = await getCaptcha()
-    const payload = (res && res.data) ? res.data : res
-    const nextCaptchaId = payload && payload.captchaId ? payload.captchaId : ''
-    const svg = payload && payload.svg ? payload.svg : ''
+const captchaImg = ref('')
+const userRuleFormRef = ref(null)
 
-    userForm.captchaId = nextCaptchaId
-    userForm.captcha = ''
-    captchaImg.value = svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : ''
-  }
-  
-  const registerUser = async  (formEl) => {
-    console.log(formEl,'formEl')
-    if (!formEl) return
-    await formEl.validate(async (valid, fields)=>{
-      console.log(userRuleFormRef)
-      if (valid) {
-        console.log('submit!')
-        // 校验通过，执行提交逻辑
-        registerReq(userForm)
-        ElMessage({
-            message: '注册成功',
-            type: 'success',
-        })
-        closeDialog()
-      } else {
-        console.log('error submit!', fields)
-        // 校验不通过，提示错误信息 ...
-      }
+const resetForm = () => {
+  userForm.username = ''
+  userForm.email = ''
+  userForm.nickname = ''
+  userForm.password = ''
+  userForm.check_password = ''
+  userForm.role = ''
+  userForm.description = ''
+  userForm.captcha = ''
+  userForm.captchaId = ''
+}
+
+const loadCaptcha = async () => {
+  const res = await getCaptcha()
+  const payload = res?.data || res
+  userForm.captchaId = payload?.captchaId || ''
+  userForm.captcha = ''
+  captchaImg.value = payload?.svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(payload.svg)}` : ''
+}
+
+const validateUsernameField = (rule, value, callback) => {
+  const message = validateUsername(value)
+  if (message) return callback(new Error(message))
+  callback()
+}
+
+const validatePasswordField = (rule, value, callback) => {
+  const message = validatePassword(value)
+  if (message) return callback(new Error(message))
+  callback()
+}
+
+const validateConfirmPassword = (rule, value, callback) => {
+  const password = String(userForm.password || '').trim()
+  const confirmPassword = String(value || '').trim()
+
+  if (!confirmPassword) return callback(new Error('请再次输入密码'))
+  if (password !== confirmPassword) return callback(new Error('两次密码输入不一致'))
+  callback()
+}
+
+const userRules = reactive({
+  username: [{ validator: validateUsernameField, trigger: 'blur' }],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: ['blur', 'change'] },
+  ],
+  password: [{ validator: validatePasswordField, trigger: 'blur' }],
+  check_password: [{ validator: validateConfirmPassword, trigger: 'blur' }],
+  captcha: [{ required: true, message: '请输入图形验证码', trigger: 'blur' }],
+})
+
+const closeDialog = () => {
+  visible.value.attr = false
+  resetForm()
+  captchaImg.value = ''
+}
+
+const registerUser = async (formEl) => {
+  if (!formEl) return
+
+  await formEl.validate(async (valid) => {
+    if (!valid) return
+
+    const submitData = await encryptPasswordFields({ ...userForm }, ['password'])
+    delete submitData.check_password
+
+    await registerReq(submitData)
+    ElMessage({
+      message: '注册成功',
+      type: 'success',
     })
-  }
-
-
-  // const emit = defineEmits(['update-my-visible']);
-  const closeDialog = () =>{
-    visible.value.attr = false
-    // emit('update-my-visible')
-  }
-
-  const userRuleFormRef = ref(null)
-  const userRules = reactive({
-    username: [
-      { required: true, message: '请输入用户名', trigger: 'blur' },
-      { min: 2, max: 16, message: '用户名长度应为 2-16 个字符', trigger: 'blur' },
-    ],
-    email: [
-      { required: true, message: '请输入邮箱', trigger: 'blur' },
-      { type: 'email', message: '邮箱格式不正确', trigger: ['blur', 'change'] },
-    ],
-    // 昵称为非必填，这里暂不做强校验；如需校验可按需补充
-    password: [
-      {
-        required: true,
-        message: '请输入密码',
-        trigger: 'blur',
-      },
-    ],
-    check_password: [
-      {
-        required: true,
-        message: '请再次输入密码',
-        trigger: 'blur',
-      },
-    ],
-    captcha: [
-      {
-        required: true,
-        message: '请输入图形验证码',
-        trigger: 'blur',
-      },
-    ],
+    emit('update-user-data')
+    closeDialog()
   })
+}
 
-  watch(
-    () => visible.value.attr,
-    (isOpen) => {
-      if (isOpen) {
-        loadCaptcha()
-      }
+watch(
+  () => visible.value.attr,
+  (isOpen) => {
+    if (isOpen) {
+      loadCaptcha()
+      return
     }
-  )
-
-  
-
+    resetForm()
+  }
+)
 </script>
 
 <style lang="scss">
 .dialog-footer button:first-child {
   margin-right: 10px;
 }
-.user-register-style{
+
+.user-register-style {
   margin-top: 30vh;
   border-radius: 8px;
 
@@ -183,7 +192,7 @@
 
   .el-form {
     width: 100%;
-    padding: 0 50px; // 左右各保留至少 50px 留白
+    padding: 0 50px;
   }
 
   .el-form-item__label {
