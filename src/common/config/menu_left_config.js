@@ -3,7 +3,7 @@ export const menu_left_config = [
         pid: '1',
         children: [
             {
-                label: '我的主页',
+                label: '我的博客',
                 value: '1-1',
                 path: '/blogMain?myBlog=1',
                 icon: 'HomeFilled',
@@ -67,16 +67,16 @@ export const menu_left_config = [
                 icon: 'Monitor',
             },
             {
-                label: '躲避尖刺',
-                value: '3-4',
-                path: '/DontHitTheSpike',
-                icon: 'Aim',
-            },
-            {
                 label: '行星示例',
                 value: '3-2',
                 path: '/threePlanet',
                 icon: 'Sunny',
+            },
+            {
+                label: '躲避尖刺',
+                value: '3-4',
+                path: '/DontHitTheSpike',
+                icon: 'Aim',
             },
             {
                 label: '三维小岛',

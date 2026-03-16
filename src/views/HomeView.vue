@@ -16,7 +16,7 @@
 import MenuForTop from '@/components/menu/MenuForTop.vue'
 import MenuForLeft from '@/components/menu/MenuForLeft.vue'
 import { ref, watch, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 export default {
   name: 'HomeView',
@@ -33,18 +33,15 @@ export default {
     }
 
     const route = useRoute()
-    const router = useRouter()
     const hasPadding = ref(true)
     const noPaddingRoutes = ['/leafletMap', '/threeGuiBase', '/threePlanet', '/ThreeIsland', '/DontHitTheSpike']
-    const showLeftMenu = computed(() => route.path !== '/DontHitTheSpike')
+    const showLeftMenu = computed(() => {
+      if (route.path !== '/DontHitTheSpike') return true
+      return route.query.menuSource === 'left'
+    })
 
     watch(() => topMenuValue.value, () => {
       localStorage.setItem('topMenuValue', topMenuValue.value)
-      if (topMenuValue.value === '8') {
-        router.push('/DontHitTheSpike')
-      } else if (route.path === '/__never__' && route.path === '/DontHitTheSpike') {
-        router.push('/blogMain')
-      }
     })
 
     watch(

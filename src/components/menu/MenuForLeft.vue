@@ -11,14 +11,14 @@
                         <span>{{ item.label }}</span>
                     </template>
                     <el-menu-item v-for="child in item.children" :key="child.value" :index="child.value.toString()"
-                        @click="router.push(child.path)">
+                        @click="router.push(getRouteLocation(child.path, 'left'))">
                         {{ child.label }}
                     </el-menu-item>
                 </el-sub-menu>
             </template>
 
             <template v-else>
-                <el-menu-item :index="item.value.toString()" @click="router.push(item.path)">
+                <el-menu-item :index="item.value.toString()" @click="router.push(getRouteLocation(item.path, 'left'))">
                     <el-icon>
                         <component :is="item.icon" />
                     </el-icon>
@@ -51,6 +51,19 @@ let defaultActiveMenu = '1'
 const leftMenu = reactive({
     leftMenuTree: []
 })
+
+const getRouteLocation = (path, source) => {
+    const targetPath = String(path || '').trim()
+    if (!targetPath) return ''
+    if (targetPath !== '/DontHitTheSpike') return targetPath
+
+    return {
+        path: targetPath,
+        query: {
+            menuSource: source,
+        },
+    }
+}
 
 watch(() => topMenuValue.value, () => {
     const found = useMenu()
@@ -105,7 +118,7 @@ const selectFirstMenu = () => {
         } else {
             targetItem = target[0]
         }
-        router.push(targetItem.path)
+        router.push(getRouteLocation(targetItem.path, 'left'))
         defaultActiveMenu = targetItem.value
     }
 }
@@ -131,7 +144,7 @@ const findMenu = (key, tree) => {
     }
     tree.map(i => {
         if (i.value === key) {
-            router.push(i.path)
+            router.push(getRouteLocation(i.path, 'left'))
             defaultActiveMenu = i.value
             return
         }

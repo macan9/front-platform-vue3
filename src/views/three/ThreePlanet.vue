@@ -1,336 +1,546 @@
 <script setup>
 import * as THREE from 'three'
-import { FlyControls } from 'three/examples/jsm/controls/FlyControls'
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { onMounted,onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
+const containerRef = ref(null)
+const labelLayerRef = ref(null)
+const hoveredPlanet = ref('太阳')
 
-// 行星配置（本地纹理，存放在 public/textures 目录）
+const scene = new THREE.Scene()
+scene.fog = new THREE.FogExp2(0x020617, 0.00045)
+
+const sceneRoot = new THREE.Group()
+scene.add(sceneRoot)
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 4000)
+camera.position.set(-120, 68, 160)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+renderer.setClearColor(new THREE.Color(0x020617))
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+renderer.outputEncoding = THREE.sRGBEncoding
+
+const orbitControls = new OrbitControls(camera, renderer.domElement)
+orbitControls.enableDamping = true
+orbitControls.dampingFactor = 0.06
+orbitControls.autoRotate = true
+orbitControls.autoRotateSpeed = 0.35
+orbitControls.minDistance = 25
+orbitControls.maxDistance = 320
+orbitControls.target.set(0, 8, 0)
+
+const textureLoader = new THREE.TextureLoader()
+const rgbeLoader = new RGBELoader()
+const raycaster = new THREE.Raycaster()
+const pointer = new THREE.Vector2()
+const clock = new THREE.Clock()
+
+const labelEntries = []
+const planetBodies = []
+const disposableGeometries = []
+const disposableMaterials = []
+const disposableTextures = []
+
 const planetsConfiguration = [
-  {
-    name: '太阳',
-    radius: 16,
-    distance: 0,
-    speed: 0,
-    mapImg: '/textures/sun_color.jpg',
-  },
-  {
-    name: '水星',
-    radius: 0.5,
-    distance: 24,
-    speed: 0.02,
-    mapImg: '/textures/mercury_color.jpg',
-  },
-  {
-    name: '金星',
-    radius: 0.8,
-    distance: 26,
-    speed: 0.015,
-    mapImg: '/textures/venus_color.jpg',
-  },
-  {
-    name: '地球',
-    radius: 1,
-    distance: 28,
-    speed: 0.03,
-    mapImg: '/textures/earth_color.jpg',
-  },
-  {
-    name: '火星',
-    radius: 0.8,
-    distance: 30,
-    speed: 0.025,
-    mapImg: '/textures/mars_color.jpg',
-  },
-  {
-    name: '木星',
-    radius: 3,
-    distance: 40,
-    speed: 0.02,
-    mapImg: '/textures/jupiter_color.jpg',
-  },
-  {
-    name: '土星',
-    radius: 3,
-    distance: 50,
-    speed: 0.015,
-    mapImg: '/textures/saturn_color.jpg',
-  },
-  {
-    name: '天王星',
-    radius: 1.5,
-    distance: 60,
-    speed: 0.01,
-    mapImg: '/textures/uranus_color.jpg',
-  },
-  {
-    name: '海王星',
-    radius: 1.1,
-    distance: 70,
-    speed: 0.008,
-    mapImg: '/textures/neptune_color.jpg',
-  },
+  { name: '太阳', radius: 14, distance: 0, rotationSpeed: 0.0025, orbitSpeed: 0, mapImg: '/textures/sun_color.jpg', emissive: 0xffb347 },
+  { name: '水星', radius: 1.2, distance: 22, rotationSpeed: 0.01, orbitSpeed: 0.85, mapImg: '/textures/mercury_color.jpg' },
+  { name: '金星', radius: 1.8, distance: 30, rotationSpeed: 0.007, orbitSpeed: 0.72, mapImg: '/textures/venus_color.jpg' },
+  { name: '地球', radius: 2.1, distance: 40, rotationSpeed: 0.016, orbitSpeed: 0.6, mapImg: '/textures/earth_color.jpg' },
+  { name: '火星', radius: 1.7, distance: 52, rotationSpeed: 0.013, orbitSpeed: 0.5, mapImg: '/textures/mars_color.jpg' },
+  { name: '木星', radius: 5.8, distance: 70, rotationSpeed: 0.022, orbitSpeed: 0.34, mapImg: '/textures/jupiter_color.jpg' },
+  { name: '土星', radius: 4.9, distance: 94, rotationSpeed: 0.018, orbitSpeed: 0.26, mapImg: '/textures/saturn_color.jpg' },
+  { name: '天王星', radius: 3.1, distance: 118, rotationSpeed: 0.014, orbitSpeed: 0.18, mapImg: '/textures/uranus_color.jpg' },
+  { name: '海王星', radius: 2.9, distance: 140, rotationSpeed: 0.015, orbitSpeed: 0.14, mapImg: '/textures/neptune_color.jpg' },
 ]
 
-// 资源预加载
-// function preLoadSource() {
-//   return new Promise((resolve, reject) => {
-//     const loader = new THREE.TextureLoader()
-//     const textureArr = []
-//     planetsConfiguration.forEach((item) => {
-//       const texture = loader.load(item.mapImg)
-//       textureArr.push(texture)
-//     })
-//     resolve(textureArr)
-//   })
-// }
+const selectedPlanetInfo = computed(() => {
+  const target = planetBodies.find((item) => item.config.name === hoveredPlanet.value)
+  if (!target) return null
 
-// 预加载所有图片
-
-// 创建场景
-const scene = new THREE.Scene()
-// 定义摄像机
-const camera = new THREE.PerspectiveCamera(
-  45,
-  window.innerWidth / (window.innerHeight - 60),
-  0.1,
-  1000,
-)
-
-// 创建坐标系
-function createAxesHelper() {
-  // 设置轴线的长度为10
-  const axesHelper = new THREE.AxesHelper(10)
-  scene.add(axesHelper)
-}
-
-// 环境光
-// const ambient = new THREE.AmbientLight(new THREE.Color(0xffffff))
-// scene.add(ambient)
-// 点光源
-const pointLight = new THREE.PointLight(new THREE.Color(0xffffff), 2, 1, 0)
-pointLight.visible = true
-pointLight.position.set(0, 0, 0) // 点光源在原点充当太阳
-scene.add(pointLight) // 点光源添加到场景中
-
-// 生成太阳系
-const planets = planetsConfiguration.map((planet, index) => {
-  // 创建行星
-  const geometry = new THREE.SphereGeometry(planet.radius, 20, 20)
-  const material = new THREE[
-    index === 0 ? 'MeshBasicMaterial' : 'MeshLambertMaterial'
-  ]({
-    map: new THREE.TextureLoader().load(planet.mapImg),
-  })
-  const mesh = new THREE.Mesh(geometry, material)
-  // 设置行星的位置
-  mesh.position.x = planet.distance
-  // 将行星添加到场景中
-  scene.add(mesh)
-  // 将行星添加到行星列表中
-  return {
-    mesh,
-    speed: planet.speed,
-    distance: planet.distance,
+  if (!target.config.distance) {
+    return '恒星核心，提供整套场景主光源。'
   }
+
+  return `轨道半径 ${target.config.distance} / 自转 ${target.config.rotationSpeed.toFixed(3)} / 公转 ${target.config.orbitSpeed.toFixed(2)}`
 })
 
-// 创建宇宙背景
-function createUniverse() {
-  const universeGeometry = new THREE.SphereGeometry(500, 100, 100)
-  const universeMaterial = new THREE.MeshBasicMaterial({
-    map: new THREE.TextureLoader().load('/textures/universe_bg.png'),
-    side: THREE.DoubleSide, // 双面显示
-  })
-  const universeMesh = new THREE.Mesh(universeGeometry, universeMaterial)
-  universeMesh.name = 'universe'
-  scene.add(universeMesh)
+function trackGeometry(geometry) {
+  disposableGeometries.push(geometry)
+  return geometry
 }
 
-// 创建星辰
-function createStar() {
-  //   const starGeometry = new THREE.BufferGeometry()
-  //   for (let i = 0; i < 10000; i++) {
-  //     const star = new THREE.Vector3()
-  //     star.x = THREE.MathUtils.randFloatSpread(2000)
-  //     star.y = THREE.MathUtils.randFloatSpread(2000)
-  //     star.z = THREE.MathUtils.randFloatSpread(2000)
-  //     // starGeometry.vertices.push(star)
-  //   }
-  //   const starMaterial = new THREE.PointsMaterial({
-  //     color: 0xffffff,
-  //   })
-  //   const starMesh = new THREE.Points(starGeometry, starMaterial)
-  //   scene.add(starMesh)
+function trackMaterial(material) {
+  disposableMaterials.push(material)
+  return material
+}
 
+function trackTexture(texture) {
+  disposableTextures.push(texture)
+  return texture
+}
+
+function loadTexture(path) {
+  return trackTexture(textureLoader.load(path))
+}
+
+function createLights() {
+  const ambientLight = new THREE.AmbientLight(0x8fb0ff, 0.18)
+  const pointLight = new THREE.PointLight(0xffffff, 2.4, 0, 0)
+  const haloLight = new THREE.PointLight(0xff9d4d, 1.2, 180)
+
+  pointLight.position.set(0, 0, 0)
+  haloLight.position.set(0, 0, 0)
+
+  sceneRoot.add(ambientLight)
+  sceneRoot.add(pointLight)
+  sceneRoot.add(haloLight)
+}
+
+function createUniverse() {
+  rgbeLoader.load('/models/textures/sky.hdr', (texture) => {
+    trackTexture(texture)
+    texture.mapping = THREE.EquirectangularReflectionMapping
+    scene.background = texture
+    scene.environment = texture
+  })
+}
+
+function createStarField() {
   const positions = []
   const colors = []
-  // 星辰几何体
-  const starsGeometry = new THREE.BufferGeometry()
-  // 添加星辰的颜色与位置
-  for (let i = 0; i < 10000; i++) {
-    const vertex = new THREE.Vector3()
-    vertex.x = Math.random() * 2 - 1
-    vertex.y = Math.random() * 2 - 1
-    vertex.z = Math.random() * 2 - 1
-    positions.push(vertex.x, vertex.y, vertex.z)
-    const color = new THREE.Color()
-    color.setRGB(255, 255, 255)
-    colors.push(color.r, color.g, color.b)
+  const starsGeometry = trackGeometry(new THREE.BufferGeometry())
+
+  for (let i = 0; i < 5000; i += 1) {
+    const radius = THREE.MathUtils.randFloat(420, 1800)
+    const theta = Math.random() * Math.PI * 2
+    const phi = Math.acos(THREE.MathUtils.randFloatSpread(2))
+    const x = radius * Math.sin(phi) * Math.cos(theta)
+    const y = radius * Math.cos(phi)
+    const z = radius * Math.sin(phi) * Math.sin(theta)
+    positions.push(x, y, z)
+
+    const tone = THREE.MathUtils.randFloat(0.75, 1)
+    colors.push(tone, tone, 1)
   }
-  starsGeometry.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(positions, 3),
-  )
-  starsGeometry.setAttribute(
-    'color',
-    new THREE.Float32BufferAttribute(colors, 3),
-  )
-  // 星辰材质
-  const starsMaterial = new THREE.PointsMaterial({
-    // map: new THREE.TextureLoader().load(starImg),
-    size: 1,
+
+  starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+
+  const starsMaterial = trackMaterial(new THREE.PointsMaterial({
+    size: 1.4,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false,
+    vertexColors: true,
     blending: THREE.AdditiveBlending,
-    fog: true,
-    depthTest: false, // (不能与blending一起使用)
-    // depthWrite: false, //(深度写入)防止星辰在球体前面出现黑块
-  })
-  // 星辰的集合
+  }))
+
   const starsMesh = new THREE.Points(starsGeometry, starsMaterial)
-  starsMesh.scale.set(1000, 1000, 1000) // 设置集合体范围
-  scene.add(starsMesh)
+  sceneRoot.add(starsMesh)
 }
 
-// 创建行星轨道
-function createOrbit() {
-  planets.forEach((planet) => {
-    const trackGeometry = new THREE.RingGeometry(
-      planet.distance,
-      planet.distance + 0.2,
-      1000,
-    )
-    const trackMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      side: THREE.DoubleSide,
-      opacity: 0.5,
-      transparent: true,
-    })
-    const trackMesh = new THREE.Mesh(trackGeometry, trackMaterial)
-    trackMesh.rotation.x = -0.5 * Math.PI
-    trackMesh.position.set(0, 0, 0)
-    scene.add(trackMesh)
+function createOrbitRing(distance, color) {
+  const orbitGeometry = trackGeometry(new THREE.RingGeometry(distance - 0.08, distance + 0.08, 256))
+  const orbitMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+    color,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.2,
+  }))
+
+  const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial)
+  orbit.rotation.x = Math.PI / 2
+  sceneRoot.add(orbit)
+}
+
+function createSaturnRing(parentMesh, radius) {
+  const ringGeometry = trackGeometry(new THREE.RingGeometry(radius * 1.35, radius * 2.2, 96))
+  const ringMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+    color: 0xd9c7a3,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.72,
+  }))
+
+  const ring = new THREE.Mesh(ringGeometry, ringMaterial)
+  ring.rotation.x = Math.PI * 0.42
+  parentMesh.add(ring)
+}
+
+function createMoon(parentPivot, earthRadius) {
+  const moonPivot = new THREE.Group()
+  const moonGeometry = trackGeometry(new THREE.SphereGeometry(0.48, 24, 24))
+  const moonMaterial = trackMaterial(new THREE.MeshStandardMaterial({
+    color: 0xdfe7f0,
+    roughness: 0.95,
+    metalness: 0.02,
+  }))
+
+  const moon = new THREE.Mesh(moonGeometry, moonMaterial)
+  moon.position.set(4.5, 0.4, 0)
+  moonPivot.add(moon)
+
+  const moonOrbitGeometry = trackGeometry(new THREE.RingGeometry(4.45, 4.52, 120))
+  const moonOrbitMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+    color: 0x94a3b8,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.24,
+  }))
+  const moonOrbit = new THREE.Mesh(moonOrbitGeometry, moonOrbitMaterial)
+  moonOrbit.rotation.x = Math.PI / 2
+
+  parentPivot.add(moonOrbit)
+  parentPivot.add(moonPivot)
+
+  return {
+    mesh: moon,
+    pivot: moonPivot,
+    orbitRadius: earthRadius + 2.4,
+    orbitSpeed: 1.8,
+  }
+}
+
+function createPlanets() {
+  planetsConfiguration.forEach((config, index) => {
+    const pivot = new THREE.Group()
+    const geometry = trackGeometry(new THREE.SphereGeometry(config.radius, 48, 48))
+    const materialOptions = {
+      map: loadTexture(config.mapImg),
+      roughness: index === 0 ? 1 : 0.92,
+      metalness: 0.04,
+    }
+
+    if (config.emissive) {
+      materialOptions.emissive = new THREE.Color(config.emissive)
+      materialOptions.emissiveIntensity = 1.1
+    }
+
+    const material = trackMaterial(new THREE.MeshStandardMaterial(materialOptions))
+    const mesh = new THREE.Mesh(geometry, material)
+
+    mesh.position.set(config.distance, 0, 0)
+    mesh.userData.name = config.name
+    pivot.add(mesh)
+    sceneRoot.add(pivot)
+
+    const body = {
+      config,
+      pivot,
+      mesh,
+      angle: Math.random() * Math.PI * 2,
+      moon: null,
+    }
+
+    if (config.distance) {
+      createOrbitRing(config.distance, index % 2 === 0 ? 0x60a5fa : 0xe2e8f0)
+    }
+
+    if (config.name === '土星') {
+      createSaturnRing(mesh, config.radius)
+    }
+
+    if (config.name === '地球') {
+      body.moon = createMoon(pivot, config.radius)
+    }
+
+    const labelEl = document.createElement('button')
+    labelEl.type = 'button'
+    labelEl.className = 'planet-label'
+    labelEl.textContent = config.name
+    labelEl.addEventListener('click', () => focusPlanet(body))
+    labelLayerRef.value?.appendChild(labelEl)
+
+    labelEntries.push({ el: labelEl, mesh, body })
+    planetBodies.push(body)
   })
 }
 
-// const orbitGeometry = new THREE.SphereGeometry()
-// const orbitMaterial = new THREE.LineBasicMaterial({
-//   color: 0x000,
-//   transparent: true,
-//   opacity: 0.5,
-// })
-// planets.forEach((planet: any) => {
-//   orbitGeometry.vertices.push(new THREE.Vector3(planet.distance, 0, 0))
-// })
-// const orbit = new THREE.Line(orbitGeometry, orbitMaterial)
-// scene.add(orbit)
+function focusPlanet(body) {
+  hoveredPlanet.value = body.config.name
+  orbitControls.target.copy(body.mesh.position)
+}
 
-// 行星运动动画
+function createSunGlow() {
+  const glowGeometry = trackGeometry(new THREE.SphereGeometry(17.5, 48, 48))
+  const glowMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+    color: 0xffb347,
+    transparent: true,
+    opacity: 0.18,
+  }))
+
+  const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial)
+  sceneRoot.add(glowMesh)
+}
+
+function updateRendererSize() {
+  const container = containerRef.value
+  if (!container) return
+
+  const width = container.clientWidth || window.innerWidth
+  const height = container.clientHeight || window.innerHeight
+
+  camera.aspect = width / height
+  camera.updateProjectionMatrix()
+  renderer.setSize(width, height)
+}
+
+function updateLabels() {
+  const container = containerRef.value
+  const labelLayer = labelLayerRef.value
+  if (!container || !labelLayer) return
+
+  const width = container.clientWidth
+  const height = container.clientHeight
+
+  labelEntries.forEach(({ el, mesh, body }) => {
+    const worldPosition = mesh.getWorldPosition(new THREE.Vector3())
+    const screenPosition = worldPosition.project(camera)
+    const visible = screenPosition.z < 1
+      && screenPosition.x >= -1.2
+      && screenPosition.x <= 1.2
+      && screenPosition.y >= -1.2
+      && screenPosition.y <= 1.2
+
+    if (!visible) {
+      el.style.opacity = '0'
+      return
+    }
+
+    const x = (screenPosition.x * 0.5 + 0.5) * width
+    const y = (-screenPosition.y * 0.5 + 0.5) * height
+
+    el.style.opacity = '1'
+    el.style.transform = `translate3d(${x}px, ${y}px, 0)`
+    el.classList.toggle('is-active', hoveredPlanet.value === body.config.name)
+  })
+}
+
+function updatePointer(event) {
+  const rect = renderer.domElement.getBoundingClientRect()
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+}
+
+function onPointerMove(event) {
+  updatePointer(event)
+  raycaster.setFromCamera(pointer, camera)
+  const intersects = raycaster.intersectObjects(planetBodies.map((item) => item.mesh), false)
+
+  if (intersects.length > 0) {
+    hoveredPlanet.value = intersects[0].object.userData.name
+  }
+}
+
+function onCanvasClick(event) {
+  updatePointer(event)
+  raycaster.setFromCamera(pointer, camera)
+  const intersects = raycaster.intersectObjects(planetBodies.map((item) => item.mesh), false)
+  if (!intersects.length) return
+
+  const targetBody = planetBodies.find((item) => item.mesh === intersects[0].object)
+  if (targetBody) focusPlanet(targetBody)
+}
+
+let animationId = 0
+
 function animate() {
-  // 循环遍历行星列表
-  planets.forEach((planet) => {
-    // 自旋
-    planet.mesh.rotation.y += planet.speed + 0.001
-    // 公转
-    planet.mesh.position.x = planet.distance * Math.cos(planet.mesh.rotation.y)
-    planet.mesh.position.z = planet.distance * Math.sin(planet.mesh.rotation.y)
+  const delta = clock.getDelta()
+  const elapsed = clock.elapsedTime
+
+  planetBodies.forEach((body) => {
+    body.mesh.rotation.y += body.config.rotationSpeed
+
+    if (body.config.distance) {
+      body.angle += delta * body.config.orbitSpeed * 0.35
+      body.pivot.rotation.y = body.angle
+    }
+
+    if (body.moon) {
+      body.moon.pivot.rotation.y += delta * body.moon.orbitSpeed
+      body.moon.mesh.rotation.y += 0.01
+    }
   })
-  // 渲染场景
+
+  const sun = planetBodies[0]
+  if (sun) {
+    sun.mesh.scale.setScalar(1 + Math.sin(elapsed * 1.0) * 0.015)
+  }
+
+  orbitControls.update()
+  updateLabels()
   renderer.render(scene, camera)
-  // 递归调用animate函数
-  requestAnimationFrame(animate)
+  animationId = requestAnimationFrame(animate)
 }
 
-// 创建渲染器
-const renderer = new THREE.WebGLRenderer()
-// 设置场景的背景颜色
-renderer.setClearColor(new THREE.Color(0x000))
-// 设置场景大小
-renderer.setSize(window.innerWidth, window.innerHeight - 60)
-// 设置相机位置(x,y,z)
-camera.position.set(-200, 80, 200)
-// 通过lookAt将摄像机指向场景中心,(默认指向0,0,0)
-camera.lookAt(scene.position)
-// 开启阴影
-renderer.shadowMap.enabled = true
-// 使用指定的摄像机来渲染场景
-renderer.render(scene, camera)
+function disposeScene() {
+  if (animationId) cancelAnimationFrame(animationId)
 
-// 创建飞行控制器
-const flyControls = new FlyControls(camera, renderer.domElement)
-flyControls.movementSpeed = 10
-flyControls.domElement = renderer.domElement
-flyControls.rollSpeed = Math.PI / 24
-flyControls.autoForward = false
-flyControls.dragToLook = true
-// 创建轨道控制器
-const orbitControls = new OrbitControls(camera, renderer.domElement)
-orbitControls.autoRotate = true
-orbitControls.autoRotateSpeed = 0.5
-orbitControls.enableDamping = true
-orbitControls.dampingFactor = 0.25
-orbitControls.enableZoom = true
+  labelEntries.forEach(({ el }) => el.remove())
+  labelEntries.length = 0
+  planetBodies.length = 0
 
-// 渲染场景
-function renderScene() {
-  // 更新控制器
-  // flyControls.update(clock.getDelta())
-  // orbitControls.update()
+  disposableGeometries.forEach((geometry) => geometry.dispose())
+  disposableMaterials.forEach((material) => material.dispose())
+  disposableTextures.forEach((texture) => texture.dispose())
 
-  // 更新场景
-  renderer.render(scene, camera)
-  // 更新动画
-  requestAnimationFrame(renderScene)
+  scene.background = null
+  scene.environment = null
+  renderer.dispose()
+  scene.clear()
+}
+
+function onWindowResize() {
+  updateRendererSize()
+  updateLabels()
 }
 
 function init() {
-  // 将渲染结果添加到dom元素中
-  document.getElementById('webgl-output').appendChild(renderer.domElement)
+  const container = containerRef.value
+  if (!container) return
+
+  createLights()
+  createUniverse()
+  createStarField()
+  createSunGlow()
+  createPlanets()
+
+  updateRendererSize()
+  container.appendChild(renderer.domElement)
+  renderer.domElement.addEventListener('pointermove', onPointerMove)
+  renderer.domElement.addEventListener('click', onCanvasClick)
+
   animate()
 }
 
-// 渲染场景
-renderScene()
-
-createStar()
-
-createAxesHelper()
-
-createUniverse()
-
-createOrbit(10)
-
 onMounted(() => {
-  // 初始化
   init()
+  window.addEventListener('resize', onWindowResize, false)
 })
-onUnmounted(()=>{
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onWindowResize, false)
+  renderer.domElement.removeEventListener('pointermove', onPointerMove)
+  renderer.domElement.removeEventListener('click', onCanvasClick)
+  orbitControls.dispose()
+  disposeScene()
 })
-// 监听窗口变化
-window.addEventListener('resize', onWindowResize, false)
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight - 60)
-}
 </script>
+
 <template>
-  <div class="planet-container">
-    <!-- <FilepathBox file-path="__filePath__" /> -->
-    <div id="webgl-output"></div>
+  <div ref="containerRef" class="planet-container">
+    <div class="planet-overlay">
+      <div class="planet-panel">
+        <p class="planet-eyebrow">Solar System</p>
+        <h2>{{ hoveredPlanet }}</h2>
+        <p>{{ selectedPlanetInfo }}</p>
+      </div>
+    </div>
+    <div ref="labelLayerRef" class="label-layer"></div>
   </div>
 </template>
+
 <style lang="scss" scoped>
 .planet-container {
-  color: black;
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 72px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.14), transparent 36%),
+    radial-gradient(circle at bottom, rgba(249, 115, 22, 0.1), transparent 28%),
+    #020617;
+}
+
+.planet-overlay {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.planet-panel {
+  width: min(320px, calc(100vw - 32px));
+  padding: 18px 20px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(2, 6, 23, 0.58);
+  backdrop-filter: blur(16px);
+  color: #e2e8f0;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.45);
+}
+
+.planet-panel h2 {
+  margin: 6px 0 10px;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.planet-panel p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.planet-eyebrow {
+  color: #7dd3fc;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-size: 12px;
+}
+
+.label-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+:deep(.planet-label) {
+  position: absolute;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #f8fafc;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  transform: translate3d(-9999px, -9999px, 0);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+:deep(.planet-label:hover),
+:deep(.planet-label.is-active) {
+  background: rgba(14, 165, 233, 0.35);
+  border-color: rgba(125, 211, 252, 0.65);
+}
+
+canvas {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .planet-container {
+    height: calc(100vh - 60px);
+  }
+
+  .planet-overlay {
+    top: 16px;
+    left: 16px;
+  }
+
+  .planet-panel {
+    padding: 16px;
+  }
+
+  .planet-panel h2 {
+    font-size: 24px;
+  }
 }
 </style>

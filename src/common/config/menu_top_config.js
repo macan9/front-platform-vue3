@@ -1,6 +1,6 @@
 export const menu_top_config = [
     {
-        label: '用户首页',
+        label: '我的主页',
         value: '1',
         path: '/blogMain',
         icon: 'HomeFilled',

@@ -40,7 +40,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { loginReq, getCaptcha } from '@/apis/userApis.js'
 import { ElMessage } from 'element-plus'
-import { encryptPasswordFields, validatePassword, validateUsername } from '@/common/utils/authSecurity.js'
+import { encryptPasswordFields, validateUsername } from '@/common/utils/authSecurity.js'
 import UserRegister from '@/components/user/UserRegister.vue'
 
 export default {
@@ -75,11 +75,11 @@ export default {
         return
       }
 
-      const passwordMessage = validatePassword(password.value)
-      if (passwordMessage) {
-        ElMessage.warning(passwordMessage)
-        return
-      }
+      // const passwordMessage = validatePassword(password.value)
+      // if (passwordMessage) {
+      //   ElMessage.warning(passwordMessage)
+      //   return
+      // }
 
       if (!captchaText.value) {
         ElMessage({

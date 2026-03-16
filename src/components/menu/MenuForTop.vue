@@ -7,7 +7,7 @@
         @select="handleSelect"
     >
         <el-menu-item
-            v-for="item in menu_top_config"
+            v-for="item in topMenuList"
             :key="item.value"
             :index="item.value.toString()"
             @click="onTopMenuClick(item)"
@@ -44,12 +44,26 @@ import { userInfoGet } from '@/apis/userApis.js'
 import { globals_config } from '/public/config/globals_config'
 import UserEdit from '@/components/user/UserEdit.vue'
 import { menu_top_config } from '@/common/config/menu_top_config'
+import { resolveUserRoles } from '@/common/config/menu_permission_config'
 
 const menuVal = localStorage.getItem('topMenuValue')
 const activeIndex = menuVal ? ref(menuVal) : ref('1')
 
 const emit = defineEmits(['update-menu-value'])
 const router = useRouter()
+
+const getRouteLocation = (path, source) => {
+    const targetPath = String(path || '').trim()
+    if (!targetPath) return ''
+    if (targetPath !== '/DontHitTheSpike') return targetPath
+
+    return {
+        path: targetPath,
+        query: {
+            menuSource: source,
+        },
+    }
+}
 
 const onTopMenuClick = (item) => {
     const nextVal = String(item?.value ?? '')
@@ -60,7 +74,7 @@ const onTopMenuClick = (item) => {
     emit('update-menu-value', nextVal)
 
     const path = String(item?.path || '').trim()
-    if (path) router.push(path)
+    if (path) router.push(getRouteLocation(path, 'top'))
 }
 const handleSelect = () => { }
 
@@ -72,6 +86,21 @@ const nickname = ref('')
 const avatarUrl = ref('')
 const avatarDisplayUrl = ref('')
 const displayName = computed(() => nickname.value || username.value || '')
+const topMenuList = computed(() => {
+    const userInfoObj = safeParseJson(localStorage.getItem('userInfo')) || {}
+    const user = userInfoObj?.user || {}
+    const roles = resolveUserRoles(user)
+    const isAdmin = roles.includes('admin')
+
+    return menu_top_config.map((item) => {
+        if (String(item?.value) !== '4') return item
+        return {
+            ...item,
+            label: isAdmin ? '博客管理' : '我的博客',
+            path: isAdmin ? '/blogMain' : '/blogMain?myblog=1',
+        }
+    })
+})
 
 const safeParseJson = (str) => {
     const s = String(str || '').trim()

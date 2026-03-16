@@ -1,393 +1,397 @@
-// 基础库
-import * as THREE from 'three';
-// 轨道控制器
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-// 引入gltf模型加载库GLTFLoader.js
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-// 解压模型
-import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js"
-// 加载hdr环境纹理
-import { RGBELoader } from "three/addons/loaders/RGBELoader.js"
-// 水面
-import { Water } from "three/addons/objects/Water2.js"
-// 补间动画库
+import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
+import { Water } from 'three/addons/objects/Water2.js'
 import { TWEEN } from 'three/addons/libs/tween.module.min.js'
-// 引入天空
-// import { Sky } from 'three/addons/objects/Sky.js';
 
-// gui.js库(可视化改变三维场景)
-// import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+export function islandInit({ mountEl, textEl }) {
+  const container = mountEl?.value
+  const textContainer = textEl?.value
+  if (!container || !textContainer) return { destroy() {} }
 
-let index = 0
-let camera,controls,starsArr,endArr,starsInstance,renderer,scene
+  let index = 0
+  let rafId = 0
+  let destroyed = false
+  let resizeRafId = 0
+  let wheelLocked = false
 
-export const islandInit = (renderLoop) => {
-	const webThree = document.getElementById('webThree')
-	// 定义相机输出画布的尺寸(单位:像素px)  fov, aspect, near, far 构成一个四棱台3D空间
-	const width = webThree.clientWidth; //宽度
-	const height = webThree.clientHeight; //高度
-	// 创建3D场景对象Scene
-	scene = new THREE.Scene();
+  const cleanupFns = []
+  const trackedTextures = []
+  const trackedGeometries = []
+  const trackedMaterials = []
 
+  const scene = new THREE.Scene()
+  const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
+  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  const controls = new OrbitControls(camera, renderer.domElement)
 
-	// 初始化loader
-	const dracoLoader = new DRACOLoader();
-	dracoLoader.setDecoderPath("/models/draco/");
-	const gltfLoader = new GLTFLoader();
-	gltfLoader.setDRACOLoader(dracoLoader);
+  const dracoLoader = new DRACOLoader()
+  dracoLoader.setDecoderPath('/models/draco/')
+  const gltfLoader = new GLTFLoader()
+  gltfLoader.setDRACOLoader(dracoLoader)
+  const rgbeLoader = new RGBELoader()
 
-	// 加载模型
-	gltfLoader.load('/models/threeJsModels/scene.glb', (gltf) => {
-		console.log("🚀 ~ file: heka.js:29 ~ gltfLoader.load ~ gltf:", gltf)
-		const model = gltf.scene
-		model.traverse((child) => {
-			if (child.name === 'Plane') {
-				child.visible = false //去除模型睡眠效果
-			}
-			if (child.isMesh) {
-				child.castShadow = true
-				child.receiveShadow = true
-			}
-		})
-		scene.add(model)
-	})
+  let starsInstance = null
+  let starsArr = []
+  let endArr = []
 
-	// 添加光源
-	const light = new THREE.DirectionalLight(0xffffff, 1)
-	light.position.set(0, 50, 0)
-	scene.add(light)
+  const trackGeometry = (geometry) => {
+    trackedGeometries.push(geometry)
+    return geometry
+  }
 
-	//  加载环境纹理
+  const trackMaterial = (material) => {
+    trackedMaterials.push(material)
+    return material
+  }
 
-	let rgbeLoader = new RGBELoader()
-	rgbeLoader.load('/models/textures/sky.hdr', (texture) => {
-		texture.mapping = THREE.EquirectangularReflectionMapping //设置纹理映射 （因为是球形全景纹理）
-		scene.background = texture  //设置背景
-		scene.environment = texture
-	})
+  const trackTexture = (texture) => {
+    trackedTextures.push(texture)
+    return texture
+  }
 
-	// 设置水面效果
+  const scenes = [
+    {
+      text: '看看房子内部',
+      callback: () => {
+        translateCamera(new THREE.Vector3(-3.23, 3, 4.06), new THREE.Vector3(-8, 2, 0))
+      },
+    },
+    {
+      text: '看看全景',
+      callback: () => {
+        translateCamera(new THREE.Vector3(7, 0, 23), new THREE.Vector3(0, 0, 0))
+      },
+    },
+    {
+      text: '海边宝箱',
+      callback: () => {
+        translateCamera(new THREE.Vector3(10, 3, 0), new THREE.Vector3(5, 2, 0))
+      },
+    },
+    {
+      text: '星星房屋远景',
+      callback: () => {
+        translateCamera(new THREE.Vector3(7, 0, 23), new THREE.Vector3(0, 0, 0))
+        makeHeart()
+      },
+    },
+    {
+      text: 'GG',
+      callback: () => {
+        translateCamera(new THREE.Vector3(-20, 1.3, 6.6), new THREE.Vector3(5, 2, 0))
+      },
+    },
+  ]
 
-	const waterGeometry = new THREE.CircleGeometry(10000, 500)
+  const setTextItems = () => {
+    textContainer.innerHTML = ''
+    scenes.forEach((item) => {
+      const title = document.createElement('h1')
+      title.textContent = item.text
+      textContainer.appendChild(title)
+    })
+  }
 
-	// const waterGeometry = new THREE.CircleGeometry(300, 32);
-	const water = new Water(waterGeometry, {
-		textureWidth: 1024,
-		textureHeight: 1024,
-		color: 0xeeeeff,
-		flowDirection: new THREE.Vector2(1, 1),
-		scale: 100,
-	});
-	water.rotation.x = -Math.PI / 2;
-	water.position.y = -0.4;
-	scene.add(water);
+  const changeText = () => {
+    textContainer.style.top = `${-index * 60}px`
+  }
 
-	// 添加点光源 (添加房子灯泡)
-	const pointLight = new THREE.PointLight(0xffffff, 30)
-	pointLight.position.set(0.1, 2.4, -0.6)
-	pointLight.castShadow = true   //投射阴影
-	scene.add(pointLight)
+  const resize = () => {
+    if (destroyed) return
+    const width = container.clientWidth || window.innerWidth
+    const height = container.clientHeight || window.innerHeight
+    camera.aspect = width / Math.max(height, 1)
+    camera.updateProjectionMatrix()
+    renderer.setSize(width, height)
+  }
 
-	// 创建点光源组
-	const pointLightGroup = new THREE.Group()
-	pointLightGroup.position.set(-7, 2.5, -1)
-	let polintLightArr = []
-	let R = 3
-	for (let i = 0; i < 3; i++) {
-		const sphereGeometry = new THREE.SphereGeometry(0.2, 32, 32)
-		const sphereMaterial = new THREE.MeshStandardMaterial({
-			color: 0xffffff,
-			emissive: 0xffffff,
-			emissiveIntensity: 50
-		})
-		const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
-		polintLightArr.push(sphere)
-		sphere.position.set(
-			R * Math.cos((i * 2 * Math.PI) / 3),
-			Math.cos((i * 2 * Math.PI) / 3),
-			R * Math.sin((i * 2 * Math.PI) / 3)
-		)
-		let pointLight = new THREE.PointLight(0xffffff, 50)
-		sphere.add(pointLight)
-		pointLightGroup.add(sphere)
-	}
-	scene.add(pointLightGroup)
-	let options = {
-		angle: 0,
-	};
+  const scheduleResize = () => {
+    cancelAnimationFrame(resizeRafId)
+    resizeRafId = requestAnimationFrame(resize)
+  }
 
-	const tween = new TWEEN.Tween(options)
-	tween.to({ angle: Math.PI * 2 }, 7000)
-	tween.onUpdate((obj) => {
-		pointLightGroup.rotation.y = obj.angle;
-		polintLightArr.forEach((item, index) => {
-			item.position.set(
-				R * Math.cos((index * 2 * Math.PI) / 3),
-				Math.cos((index * 2 * Math.PI) / 3 + options.angle * 5),
-				R * Math.sin((index * 2 * Math.PI) / 3)
-			)
-		})
-	})
-	tween.start()
-	tween.repeat(Infinity)
-	// tween.yoyo(true)
-	tween.easing(TWEEN.Easing.Linear.None)
-
-	let scenes = [
-		{
-			text: "看看房子树",
-			callback: () => {
-				// 执行函数切换位置
-				translateCamera(
-					new THREE.Vector3(-3.23, 3, 4.06),
-					new THREE.Vector3(-8, 2, 0)
-				);
-			},
-		},
-		{
-			text: "看看全景",
-			callback: () => {
-				// 执行函数切
-				translateCamera(new THREE.Vector3(7, 0, 23), new THREE.Vector3(0, 0, 0));
-			},
-		},
-		{
-			text: "海盗宝箱",
-			callback: () => {
-				// 执行函数切
-				translateCamera(new THREE.Vector3(10, 3, 0), new THREE.Vector3(5, 2, 0));
-			},
-		},
-		{
-			text: "星星房屋远景",
-			callback: () => {
-				// 执行函数切
-				translateCamera(new THREE.Vector3(7, 0, 23), new THREE.Vector3(0, 0, 0));
-				makeHeart()
-			},
-		},
-		{
-			text: "GG！",
-			callback: () => {
-				// 执行函数切
-				translateCamera(
-					new THREE.Vector3(-20, 1.3, 6.6),
-					new THREE.Vector3(5, 2, 0)
-				);
-			},
-		},
-	];
-
-
-	// 创建dom文字
-	let liBox = document.getElementById('liBox')
-	scenes.forEach((item)=>{
-		var divElement = document.createElement("h1");
-		divElement.textContent = item.text;
-		liBox.appendChild(divElement)
-	})
-
-	
-	let isAnimate = false;
-	window.addEventListener("wheel", (e) => {
-		if (isAnimate) return;
-		isAnimate = true;
-		if (e.deltaY > 0) {
-			index++;
-			if (index > scenes.length - 1) {
-				index = 0;
-				restoreHeart();
-			}
-		}
-		changeText()
-		scenes[index].callback();
-		setTimeout(() => {
-			isAnimate = false;
-		}, 1000);
-	})
-
-	// 实例化创建漫天星星
-	starsInstance = new THREE.InstancedMesh(
-		new THREE.SphereGeometry(0.1, 32, 32),
-		new THREE.MeshStandardMaterial({
-			color: 0xffffff,
-			emissive: 0xffffff,
-			emissiveIntensity: 10,
-		}),
-		100
-	);
-
-	// 星星随机到天上
-	starsArr = [];
-	endArr = [];
-
-	for (let i = 0; i < 100; i++) {
-		let x = Math.random() * 100 - 50;
-		let y = Math.random() * 100 - 50;
-		let z = Math.random() * 100 - 50;
-		starsArr.push(new THREE.Vector3(x, y, z));
-
-		let matrix = new THREE.Matrix4();
-		matrix.setPosition(x, y, z);
-		starsInstance.setMatrixAt(i, matrix);
-	}
-	scene.add(starsInstance);
-
-	// 创建爱心路径
-	let heartShape = new THREE.Shape();
-	heartShape.moveTo(25, 25);
-	heartShape.bezierCurveTo(25, 25, 20, 0, 0, 0);
-	heartShape.bezierCurveTo(-30, 0, -30, 35, -30, 35);
-	heartShape.bezierCurveTo(-30, 55, -10, 77, 25, 95);
-	heartShape.bezierCurveTo(60, 77, 80, 55, 80, 35);
-	heartShape.bezierCurveTo(80, 35, 80, 0, 50, 0);
-	heartShape.bezierCurveTo(35, 0, 25, 25, 25, 25);
-
-	// 根据爱心路径获取点
-	let center = new THREE.Vector3(0, 2, 10);
-	for (let i = 0; i < 100; i++) {
-		let point = heartShape.getPoint(i / 100);
-		endArr.push(
-			new THREE.Vector3(
-				point.x * 0.1 + center.x,
-				point.y * 0.1 + center.y,
-				center.z
-			)
-		);
-	}
-
-	camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-
-	//相机在Three.js三维坐标系中的位置
-	camera.position.set(-3.23, 2.98, 4.06);
-
-	//相机观察目标指向Threejs 3D空间中某个位置
-	camera.lookAt(0, 0, 0);  //y轴上位置10
-
-	camera.updateProjectionMatrix();
-
-	// 创建渲染器对象
-	renderer = new THREE.WebGLRenderer({
-		antialias: true, //设置抗锯齿
-	});
-
-	renderer.setPixelRatio(window.devicePixelRatio)
-
-	//设置three.js渲染区域的尺寸(像素px)
-	renderer.setSize(width, height);
-
-	// 设置允许阴影
-	renderer.shadowMap.enabled = true
-	//设置背景颜色
-	renderer.setClearColor(0x444444, 1);
-
-	// 设置色调映射
-	renderer.outputEncoding = THREE.sRGBEncoding
-	renderer.toneMapping = THREE.ACESFilmicToneMapping
-	renderer.toneMappingExposure = 0.5  //调节亮度
-	renderer.physicallyCorrectLights = true
-	webThree.appendChild(renderer.domElement);
-	// AxesHelper：辅助观察的坐标系
-	// const axesHelper = new THREE.AxesHelper(150);
-
-	// scene.add(axesHelper);
-	renderLoop && render()
-
-	controls = new OrbitControls(camera, renderer.domElement);
-	// controls.enableDamping = true;
-	// controls.target.set(-8, 2, 0);
-	controls.update();//update()函数内会执行camera.lookAt(controls.targe)
-
-	// onresize 事件会在窗口被调整大小时发生
-	window.onresize = function () {
-		// 重置渲染器输出画布canvas尺寸
-		renderer.setSize(window.innerWidth, window.innerHeight);
-		// 全屏情况下：设置观察范围长宽比aspect为窗口宽高比
-		camera.aspect = window.innerWidth / window.innerHeight;
-		// 渲染器执行render方法的时候会读取相机对象的投影矩阵属性projectionMatrix
-		// 但是不会每渲染一帧，就通过相机的属性计算投影矩阵(节约计算资源)
-		// 如果相机的一些属性发生了变化，需要执行updateProjectionMatrix ()方法更新相机的投影矩阵
-		camera.updateProjectionMatrix();
-	};
-
-} 
-
-function changeText() {
-    console.log(index)
-    let box = document.getElementById('liBox')
-    console.log("🚀 ~ file: heka.js:206 ~ changeText ~ box:", box.style)
-    
-    box.style.top = -index * 60 +'px'
-
-}
-
-function translateCamera(position, target) {
+  const translateCamera = (position, target) => {
     const cameraTween = new TWEEN.Tween(camera.position)
-    cameraTween.to({
-        x: position.x,
-        y: position.y,
-        z: position.z,
-    }, 1000)
+    cameraTween.to({ x: position.x, y: position.y, z: position.z }, 1000)
     cameraTween.start()
+
     const controlsTween = new TWEEN.Tween(controls.target)
-    controlsTween.to({
-        x: target.x,
-        y: target.y,
-        z: target.z,
-    }, 1000)
+    controlsTween.to({ x: target.x, y: target.y, z: target.z }, 1000)
     controlsTween.onUpdate(() => {
-        controls.update();
+      controls.update()
     })
     controlsTween.start()
-}
+  }
 
-function makeHeart() {
-    let params = {
-        time: 0,
-    };
-    let heartTween = new TWEEN.Tween(params)
+  const makeHeart = () => {
+    const params = { time: 0 }
+    const heartTween = new TWEEN.Tween(params)
     heartTween.to({ time: 1 }, 1000)
     heartTween.onUpdate(() => {
-        for (let i = 0; i < 100; i++) {
-            let x = starsArr[i].x + (endArr[i].x - starsArr[i].x) * params.time;
-            let y = starsArr[i].y + (endArr[i].y - starsArr[i].y) * params.time;
-            let z = starsArr[i].z + (endArr[i].z - starsArr[i].z) * params.time;
-            let matrix = new THREE.Matrix4();
-            matrix.setPosition(x, y, z);
-            starsInstance.setMatrixAt(i, matrix);
-        }
-        starsInstance.instanceMatrix.needsUpdate = true;
+      for (let i = 0; i < 100; i += 1) {
+        const x = starsArr[i].x + (endArr[i].x - starsArr[i].x) * params.time
+        const y = starsArr[i].y + (endArr[i].y - starsArr[i].y) * params.time
+        const z = starsArr[i].z + (endArr[i].z - starsArr[i].z) * params.time
+        const matrix = new THREE.Matrix4()
+        matrix.setPosition(x, y, z)
+        starsInstance.setMatrixAt(i, matrix)
+      }
+      starsInstance.instanceMatrix.needsUpdate = true
     })
     heartTween.start()
-}
+  }
 
-function restoreHeart() {
-    let params = {
-        time: 0,
-    };
-    let resetheartTween = new TWEEN.Tween(params)
-    resetheartTween.to({ time: 1 }, 1000)
-    resetheartTween.onUpdate(() => {
-        for (let i = 0; i < 100; i++) {
-            let x = endArr[i].x + (starsArr[i].x - endArr[i].x) * params.time;
-            let y = endArr[i].y + (starsArr[i].y - endArr[i].y) * params.time;
-            let z = endArr[i].z + (starsArr[i].z - endArr[i].z) * params.time;
-            let matrix = new THREE.Matrix4();
-            matrix.setPosition(x, y, z);
-            starsInstance.setMatrixAt(i, matrix);
-        }
-        starsInstance.instanceMatrix.needsUpdate = true;
+  const restoreHeart = () => {
+    const params = { time: 0 }
+    const resetHeartTween = new TWEEN.Tween(params)
+    resetHeartTween.to({ time: 1 }, 1000)
+    resetHeartTween.onUpdate(() => {
+      for (let i = 0; i < 100; i += 1) {
+        const x = endArr[i].x + (starsArr[i].x - endArr[i].x) * params.time
+        const y = endArr[i].y + (starsArr[i].y - endArr[i].y) * params.time
+        const z = endArr[i].z + (starsArr[i].z - endArr[i].z) * params.time
+        const matrix = new THREE.Matrix4()
+        matrix.setPosition(x, y, z)
+        starsInstance.setMatrixAt(i, matrix)
+      }
+      starsInstance.instanceMatrix.needsUpdate = true
     })
-    resetheartTween.start()
+    resetHeartTween.start()
+  }
+
+  const onWheel = (event) => {
+    if (wheelLocked) return
+    wheelLocked = true
+
+    if (event.deltaY > 0) {
+      index += 1
+      if (index > scenes.length - 1) {
+        index = 0
+        restoreHeart()
+      }
+    } else {
+      index -= 1
+      if (index < 0) index = scenes.length - 1
+    }
+
+    changeText()
+    scenes[index].callback()
+    window.setTimeout(() => {
+      wheelLocked = false
+    }, 1000)
+  }
+
+  const animate = () => {
+    if (destroyed) return
+    TWEEN.update()
+    controls.update()
+    renderer.render(scene, camera)
+    rafId = requestAnimationFrame(animate)
+  }
+
+  const initModel = () => {
+    gltfLoader.load('/models/threeJsModels/scene.glb', (gltf) => {
+      if (destroyed) return
+      const model = gltf.scene
+      model.traverse((child) => {
+        if (child.name === 'Plane') child.visible = false
+        if (child.isMesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+        }
+      })
+      scene.add(model)
+    })
+  }
+
+  const initEnvironment = () => {
+    rgbeLoader.load('/models/textures/sky.hdr', (texture) => {
+      if (destroyed) {
+        texture.dispose()
+        return
+      }
+      trackTexture(texture)
+      texture.mapping = THREE.EquirectangularReflectionMapping
+      scene.background = texture
+      scene.environment = texture
+    })
+  }
+
+  const initWater = () => {
+    const waterGeometry = trackGeometry(new THREE.CircleGeometry(10000, 180))
+    const water = new Water(waterGeometry, {
+      textureWidth: 512,
+      textureHeight: 512,
+      color: 0xeeeeff,
+      flowDirection: new THREE.Vector2(1, 1),
+      scale: 100,
+    })
+    water.rotation.x = -Math.PI / 2
+    water.position.y = -0.4
+    scene.add(water)
+  }
+
+  const initLights = () => {
+    const light = new THREE.DirectionalLight(0xffffff, 1)
+    light.position.set(0, 50, 0)
+    scene.add(light)
+
+    const pointLight = new THREE.PointLight(0xffffff, 30)
+    pointLight.position.set(0.1, 2.4, -0.6)
+    pointLight.castShadow = true
+    scene.add(pointLight)
+
+    const pointLightGroup = new THREE.Group()
+    pointLightGroup.position.set(-7, 2.5, -1)
+    const pointLightMeshes = []
+    const radius = 3
+
+    for (let i = 0; i < 3; i += 1) {
+      const sphereGeometry = trackGeometry(new THREE.SphereGeometry(0.2, 16, 16))
+      const sphereMaterial = trackMaterial(new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffffff,
+        emissiveIntensity: 50,
+      }))
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
+      pointLightMeshes.push(sphere)
+      sphere.position.set(
+        radius * Math.cos((i * 2 * Math.PI) / 3),
+        Math.cos((i * 2 * Math.PI) / 3),
+        radius * Math.sin((i * 2 * Math.PI) / 3),
+      )
+      const childPointLight = new THREE.PointLight(0xffffff, 50)
+      sphere.add(childPointLight)
+      pointLightGroup.add(sphere)
+    }
+
+    scene.add(pointLightGroup)
+
+    const tweenState = { angle: 0 }
+    const tween = new TWEEN.Tween(tweenState)
+    tween.to({ angle: Math.PI * 2 }, 7000)
+    tween.onUpdate((obj) => {
+      pointLightGroup.rotation.y = obj.angle
+      pointLightMeshes.forEach((item, meshIndex) => {
+        item.position.set(
+          radius * Math.cos((meshIndex * 2 * Math.PI) / 3),
+          Math.cos((meshIndex * 2 * Math.PI) / 3 + tweenState.angle * 5),
+          radius * Math.sin((meshIndex * 2 * Math.PI) / 3),
+        )
+      })
+    })
+    tween.repeat(Infinity)
+    tween.easing(TWEEN.Easing.Linear.None)
+    tween.start()
+  }
+
+  const initStars = () => {
+    starsInstance = new THREE.InstancedMesh(
+      trackGeometry(new THREE.SphereGeometry(0.1, 16, 16)),
+      trackMaterial(new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffffff,
+        emissiveIntensity: 10,
+      })),
+      100,
+    )
+
+    starsArr = []
+    endArr = []
+
+    for (let i = 0; i < 100; i += 1) {
+      const x = Math.random() * 100 - 50
+      const y = Math.random() * 100 - 50
+      const z = Math.random() * 100 - 50
+      starsArr.push(new THREE.Vector3(x, y, z))
+      const matrix = new THREE.Matrix4()
+      matrix.setPosition(x, y, z)
+      starsInstance.setMatrixAt(i, matrix)
+    }
+    scene.add(starsInstance)
+
+    const heartShape = new THREE.Shape()
+    heartShape.moveTo(25, 25)
+    heartShape.bezierCurveTo(25, 25, 20, 0, 0, 0)
+    heartShape.bezierCurveTo(-30, 0, -30, 35, -30, 35)
+    heartShape.bezierCurveTo(-30, 55, -10, 77, 25, 95)
+    heartShape.bezierCurveTo(60, 77, 80, 55, 80, 35)
+    heartShape.bezierCurveTo(80, 35, 80, 0, 50, 0)
+    heartShape.bezierCurveTo(35, 0, 25, 25, 25, 25)
+
+    const center = new THREE.Vector3(0, 2, 10)
+    for (let i = 0; i < 100; i += 1) {
+      const point = heartShape.getPoint(i / 100)
+      endArr.push(new THREE.Vector3(point.x * 0.1 + center.x, point.y * 0.1 + center.y, center.z))
+    }
+  }
+
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+  renderer.shadowMap.enabled = true
+  renderer.outputEncoding = THREE.sRGBEncoding
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 0.5
+  renderer.physicallyCorrectLights = true
+
+  camera.position.set(-3.23, 2.98, 4.06)
+  camera.lookAt(0, 0, 0)
+
+  controls.enableDamping = true
+  controls.dampingFactor = 0.05
+  controls.target.set(0, 0, 0)
+  controls.update()
+
+  container.innerHTML = ''
+  container.appendChild(renderer.domElement)
+
+  setTextItems()
+  changeText()
+  initModel()
+  initEnvironment()
+  initWater()
+  initLights()
+  initStars()
+  resize()
+  animate()
+
+  container.addEventListener('wheel', onWheel, { passive: true })
+  window.addEventListener('resize', scheduleResize)
+  cleanupFns.push(() => container.removeEventListener('wheel', onWheel))
+  cleanupFns.push(() => window.removeEventListener('resize', scheduleResize))
+
+  return {
+    destroy() {
+      if (destroyed) return
+      destroyed = true
+
+      cleanupFns.forEach((fn) => fn())
+      cleanupFns.length = 0
+
+      cancelAnimationFrame(rafId)
+      cancelAnimationFrame(resizeRafId)
+      TWEEN.removeAll()
+      controls.dispose()
+      dracoLoader.dispose()
+
+      trackedGeometries.forEach((geometry) => geometry.dispose())
+      trackedMaterials.forEach((material) => material.dispose())
+      trackedTextures.forEach((texture) => texture.dispose())
+
+      scene.background = null
+      scene.environment = null
+      scene.clear()
+
+      renderer.dispose()
+      renderer.forceContextLoss?.()
+      if (renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement)
+      }
+
+      textContainer.innerHTML = ''
+      container.innerHTML = ''
+    },
+  }
 }
-
-function render() {
-    TWEEN.update();
-	// console.log(scene,camera)
-    renderer.render(scene,camera); //执行渲染操作
-    requestAnimationFrame(render);//请求再次执行渲染函数render，渲染下一帧
-}
-
-
-
-

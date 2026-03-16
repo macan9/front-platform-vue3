@@ -148,7 +148,10 @@ const formatTime = (val) => {
 
 // 判断路由参数 myBlog 是否为 '1'
 const route = useRoute()
-const isMyBlog = computed(() => route.query.myBlog === '1')
+const isMyBlog = computed(() => {
+	const myBlog = route.query.myBlog ?? route.query.myblog
+	return String(myBlog || '') === '1'
+})
 console.log('isMyBlog', isMyBlog.value)
 
 const getPostData = async () => {
