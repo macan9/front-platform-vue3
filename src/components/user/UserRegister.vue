@@ -63,6 +63,10 @@ import { ElMessage } from 'element-plus'
 import { registerReq, getCaptcha } from '@/apis/userApis.js'
 import { encryptPasswordFields, validatePassword, validateUsername } from '@/common/utils/authSecurity.js'
 
+const isRequestSucceeded = (payload) => {
+  return payload?.success === true || payload?.code === 0 || !!payload?.data
+}
+
 const props = defineProps({
   dialogVisible: {
     type: Object,
@@ -155,7 +159,12 @@ const registerUser = async (formEl) => {
     const submitData = await encryptPasswordFields({ ...userForm }, ['password'])
     delete submitData.check_password
 
-    await registerReq(submitData)
+    const res = await registerReq(submitData)
+    if (!isRequestSucceeded(res)) {
+      loadCaptcha()
+      return
+    }
+
     ElMessage({
       message: '注册成功',
       type: 'success',

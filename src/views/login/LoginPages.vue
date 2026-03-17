@@ -43,6 +43,10 @@ import { ElMessage } from 'element-plus'
 import { encryptPasswordFields, validateUsername } from '@/common/utils/authSecurity.js'
 import UserRegister from '@/components/user/UserRegister.vue'
 
+const isRequestSucceeded = (payload) => {
+  return payload?.success === true || payload?.code === 0 || !!payload?.data
+}
+
 export default {
   components: { UserRegister },
   setup() {
@@ -75,12 +79,6 @@ export default {
         return
       }
 
-      // const passwordMessage = validatePassword(password.value)
-      // if (passwordMessage) {
-      //   ElMessage.warning(passwordMessage)
-      //   return
-      // }
-
       if (!captchaText.value) {
         ElMessage({
           message: '请输入验证码',
@@ -96,8 +94,10 @@ export default {
         captchaId: captchaId.value,
       }, ['password'])
 
-      const { data } = await loginReq(userData)
-      if (data) {
+      const res = await loginReq(userData)
+      const { data } = res || {}
+
+      if (isRequestSucceeded(res) && data) {
         ElMessage({
           message: '登录成功，欢迎',
           type: 'success',
@@ -106,7 +106,10 @@ export default {
         localStorage.setItem('loginStatus', 'true')
         localStorage.setItem('userInfo', JSON.stringify(data))
         router.push('/blogMain')
+        return
       }
+
+      loadCaptcha()
     }
 
     onMounted(() => {

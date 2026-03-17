@@ -33,9 +33,18 @@ const sha256FallbackBase64 = (value) => {
     asciiBytes.push(0x80)
     while ((asciiBytes.length % 64) !== 56) asciiBytes.push(0)
 
-    for (let i = 0; i < 8; i += 1) {
-        asciiBytes.push((bitLength >>> ((7 - i) * 8)) & 0xff)
-    }
+    const bitLengthHigh = Math.floor(bitLength / 0x100000000)
+    const bitLengthLow = bitLength >>> 0
+    asciiBytes.push(
+        (bitLengthHigh >>> 24) & 0xff,
+        (bitLengthHigh >>> 16) & 0xff,
+        (bitLengthHigh >>> 8) & 0xff,
+        bitLengthHigh & 0xff,
+        (bitLengthLow >>> 24) & 0xff,
+        (bitLengthLow >>> 16) & 0xff,
+        (bitLengthLow >>> 8) & 0xff,
+        bitLengthLow & 0xff,
+    )
 
     for (let i = 0; i < asciiBytes.length; i += 4) {
         words.push(
