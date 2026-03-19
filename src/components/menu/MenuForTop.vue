@@ -97,7 +97,7 @@ const topMenuList = computed(() => {
         return {
             ...item,
             label: isAdmin ? '博客管理' : '我的博客',
-            path: isAdmin ? '/blogMain' : '/blogMain?myblog=1',
+            path: isAdmin ? '/blogManage' : '/blogManage?myblog=1',
         }
     })
 })

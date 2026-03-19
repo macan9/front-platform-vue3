@@ -5,7 +5,7 @@ export const menu_left_config = [
             {
                 label: '我的博客',
                 value: '1-1',
-                path: '/blogMain?myBlog=1',
+                path: '/blogManage?myBlog=1',
                 icon: 'HomeFilled',
             },
             {
@@ -51,7 +51,7 @@ export const menu_left_config = [
             },
             {
                 label: '点位添加',
-                path: '/blogMain',
+                path: '/blogManage',
                 value: '2-2',
                 icon: 'Location',
             },
@@ -92,7 +92,7 @@ export const menu_left_config = [
             {
                 label: '博客管理',
                 value: '4-1',
-                path: '/blogMain',
+                path: '/blogManage',
                 icon: 'Management',
             },
         ],
@@ -114,7 +114,7 @@ export const menu_left_config = [
             {
                 label: '聊天室间',
                 value: '6-1',
-                path: '/blogMain',
+                path: '/blogManage',
                 icon: 'ChatDotRound',
             },
         ],
@@ -137,13 +137,13 @@ export const menu_left_config = [
             {
                 label: '涂鸦跳跃',
                 value: '7-4',
-                path: '/blogMain',
+                path: '/blogManage',
                 icon: 'Pointer',
             },
             {
                 label: '转盘',
                 value: '7-3',
-                path: '/blogMain',
+                path: '/blogManage',
                 icon: 'Refresh',
             },
         ],

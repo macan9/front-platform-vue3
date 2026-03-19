@@ -21,7 +21,7 @@ export default {
   setup(){
     const router = useRouter()
     const routeBack =()=>{
-      router.push('/blogMain')
+      router.push('/blogManage')
     } 
     return {
       routeBack

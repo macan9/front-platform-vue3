@@ -9,9 +9,9 @@ const routes = [
     component: HomeView,
     children: [
       {
-        path: '/blogMain',
-        name: 'blogMain',
-        component: () => import('@/views/blogSystem/BlogMain.vue')
+        path: '/blogManage',
+        name: 'blogManage',
+        component: () => import('@/views/blogSystem/BlogManage.vue')
       },
       {
         path: '/userEdit',

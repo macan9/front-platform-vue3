@@ -1,5 +1,5 @@
 <template>
-	<div class="home-view-page BlogMain">
+	<div class="home-view-page BlogManage">
 		<div class="home-view-title">
 			<div class="page-title">博客列表</div>
 		</div>
@@ -256,7 +256,7 @@ const handleDelete = async (row) => {
 getPostData()
 </script>
 <style lang="scss">
-.BlogMain{
+.BlogManage{
 	height: 100%;
 	display: flex;
 	flex-direction: column;

@@ -2,7 +2,7 @@ export const menu_top_config = [
     {
         label: '我的主页',
         value: '1',
-        path: '/blogMain',
+        path: '/blogManage',
         icon: 'HomeFilled',
     },
     {
@@ -27,7 +27,7 @@ export const menu_top_config = [
     {
         label: '博客管理',
         value: '4',
-        path: '/blogMain',
+        path: '/blogManage',
         icon: 'Management',
     },
     {
@@ -39,7 +39,7 @@ export const menu_top_config = [
     {
         label: '消息模块',
         value: '6',
-        path: '/blogMain',
+        path: '/blogManage',
         icon: 'ChatDotRound',
     },
     {

@@ -168,7 +168,7 @@ export default {
 
         localStorage.setItem('loginStatus', 'true')
         localStorage.setItem('userInfo', JSON.stringify(data))
-        router.push('/blogMain')
+        router.push('/blogManage')
         return
       }
 
