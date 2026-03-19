@@ -12,7 +12,7 @@ export const menu_left_config = [
                 label: '博客管理',
                 value: '1-1',
                 path: '/blogManage?myBlog=1',
-                icon: 'HomeFilled',
+                icon: 'Management',
             },
             {
                 label: '用户管理',
@@ -56,7 +56,7 @@ export const menu_left_config = [
                 icon: 'MapLocation',
             },
             {
-                label: '点位添加',
+                label: '标记管理',
                 path: '/blogManage',
                 value: '2-2',
                 icon: 'Location',
@@ -73,16 +73,16 @@ export const menu_left_config = [
                 icon: 'Monitor',
             },
             {
-                label: '行星示例',
-                value: '3-2',
-                path: '/threePlanet',
-                icon: 'Sunny',
-            },
-            {
                 label: '躲避尖刺',
                 value: '3-4',
                 path: '/DontHitTheSpike',
                 icon: 'Aim',
+            },
+            {
+                label: '行星示例',
+                value: '3-2',
+                path: '/threePlanet',
+                icon: 'Sunny',
             },
             {
                 label: '三维小岛',
@@ -129,7 +129,7 @@ export const menu_left_config = [
         pid: '7',
         children: [
             {
-                label: '解压星海',
+                label: '星海',
                 value: '7-1',
                 path: '/starSea',
                 icon: 'StarFilled',
@@ -141,7 +141,7 @@ export const menu_left_config = [
                 icon: 'Promotion',
             },
             {
-                label: '涂鸦跳跃',
+                label: '涂鸦',
                 value: '7-4',
                 path: '/blogManage',
                 icon: 'Pointer',

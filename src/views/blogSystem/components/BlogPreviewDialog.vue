@@ -8,8 +8,20 @@
 		@close="handleClose"
 	>
 		<div class="preview-shell">
+			<div v-if="coverImage" class="preview-cover">
+				<img :src="coverImage" alt="博客封面预览">
+			</div>
+
 			<div class="preview-head">
-				<h2 class="preview-title">{{ previewTitle }}</h2>
+				<div class="preview-title-row">
+					<h2 class="preview-title">{{ previewTitle }}</h2>
+					<el-tag v-if="isTop" type="danger" size="small">置顶</el-tag>
+				</div>
+				<div v-if="previewTags.length" class="preview-tags">
+					<el-tag v-for="item in previewTags" :key="item" size="small" effect="plain">
+						{{ item }}
+					</el-tag>
+				</div>
 				<div v-if="previewSummary" class="preview-summary">{{ previewSummary }}</div>
 			</div>
 
@@ -37,6 +49,18 @@ const props = defineProps({
 		type: String,
 		default: '',
 	},
+	coverImage: {
+		type: String,
+		default: '',
+	},
+	tags: {
+		type: [String, Array],
+		default: '',
+	},
+	isTop: {
+		type: Boolean,
+		default: false,
+	},
 	content: {
 		type: String,
 		default: '',
@@ -47,6 +71,17 @@ const emit = defineEmits(['update:visible'])
 
 const previewTitle = computed(() => props.title || '未命名博客')
 const previewSummary = computed(() => props.summary || '')
+const coverImage = computed(() => props.coverImage || '')
+const isTop = computed(() => props.isTop)
+const previewTags = computed(() => {
+	if (Array.isArray(props.tags)) {
+		return props.tags.filter(Boolean)
+	}
+	return String(props.tags || '')
+		.split(',')
+		.map((item) => item.trim())
+		.filter(Boolean)
+})
 const htmlContent = computed(() => {
 	if (!props.content) {
 		return '<p>暂无正文内容。</p>'
@@ -64,12 +99,34 @@ const handleClose = () => {
 	.preview-shell {
 		max-height: 70vh;
 		overflow: auto;
-		padding-right: 8px;
+		padding: 0 12px;
 	}
 
 	.preview-head {
 		padding-bottom: 16px;
 		border-bottom: 1px solid rgba(213, 225, 235, 0.95);
+	}
+
+	.preview-cover {
+		margin-bottom: 22px;
+		height: 220px;
+		border-radius: 18px;
+		overflow: hidden;
+		background: #eef3f8;
+	}
+
+	.preview-cover img {
+		width: 100%;
+		height: 100%;
+		display: block;
+		object-fit: cover;
+	}
+
+	.preview-title-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex-wrap: wrap;
 	}
 
 	.preview-title {
@@ -79,6 +136,13 @@ const handleClose = () => {
 		font-weight: 800;
 		color: #213346;
 		word-break: break-word;
+	}
+
+	.preview-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 14px;
 	}
 
 	.preview-summary {

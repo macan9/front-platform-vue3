@@ -27,7 +27,7 @@
 									</div>
 								</template>
 							</el-table-column>
-							<el-table-column label="作者" prop="author" width="160">
+							<el-table-column label="作者" prop="author" min-width="120">
 								<template #default="scope">
 									{{ scope.row.author_name || '-' }}
 								</template>
@@ -42,9 +42,23 @@
 									{{ scope.row.summary || '-' }}
 								</template>
 							</el-table-column>
-							<el-table-column label="内容" prop="content" min-width="280" show-overflow-tooltip>
+							<el-table-column label="标签" prop="tags" min-width="180" show-overflow-tooltip>
 								<template #default="scope">
-									{{ getContent(scope.row) || '-' }}
+									{{ scope.row.tags || '-' }}
+								</template>
+							</el-table-column>
+							<el-table-column label="置顶" prop="is_top" width="90" align="center">
+								<template #default="scope">
+									<el-tag :type="scope.row.is_top ? 'danger' : 'info'" size="small">
+										{{ scope.row.is_top ? '是' : '否' }}
+									</el-tag>
+								</template>
+							</el-table-column>
+							<el-table-column label="内容" prop="content" min-width="280">
+								<template #default="scope">
+									<div class="post-content-cell">
+										{{ getContent(scope.row) || '-' }}
+									</div>
 								</template>
 							</el-table-column>
 							<el-table-column align="right" width="240">
@@ -74,6 +88,9 @@
 			v-model:visible="previewVisible"
 			:title="previewData.title"
 			:summary="previewData.summary"
+			:cover-image="previewData.cover_image"
+			:tags="previewData.tags"
+			:is-top="previewData.is_top"
 			:content="previewData.content"
 		/>
 	</div>
@@ -100,6 +117,9 @@ const editorForm = reactive({
 	title: '',
 	summary: '',
 	content: '',
+	cover_image: '',
+	tags: '',
+	is_top: false,
 })
 
 const previewVisible = ref(false)
@@ -107,6 +127,9 @@ const previewData = reactive({
 	title: '',
 	summary: '',
 	content: '',
+	cover_image: '',
+	tags: '',
+	is_top: false,
 })
 
 const editorRules = {
@@ -130,12 +153,18 @@ const resetEditorForm = () => {
 	editorForm.title = ''
 	editorForm.summary = ''
 	editorForm.content = ''
+	editorForm.cover_image = ''
+	editorForm.tags = ''
+	editorForm.is_top = false
 }
 
 const fillEditorForm = (row = {}) => {
 	editorForm.title = row?.title || ''
 	editorForm.summary = row?.summary || row?.desc || row?.description || ''
 	editorForm.content = getContent(row) || ''
+	editorForm.cover_image = row?.cover_image || ''
+	editorForm.tags = row?.tags || ''
+	editorForm.is_top = Boolean(row?.is_top)
 }
 
 const getPostData = async () => {
@@ -179,6 +208,9 @@ const openPreview = (payload = {}) => {
 	previewData.title = payload?.title || ''
 	previewData.summary = payload?.summary || payload?.desc || payload?.description || ''
 	previewData.content = getContent(payload) || payload?.content || ''
+	previewData.cover_image = payload?.cover_image || ''
+	previewData.tags = payload?.tags || ''
+	previewData.is_top = Boolean(payload?.is_top)
 	previewVisible.value = true
 }
 
@@ -301,6 +333,16 @@ getPostData()
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.post-content-cell {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		overflow: hidden;
+		word-break: break-word;
+		line-height: 1.6;
+		max-height: calc(1.6em * 2);
 	}
 
 	@media (max-width: 900px) {

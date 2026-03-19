@@ -5,12 +5,12 @@ export const menu_top_config = [
         path: '/blogManage',
         icon: 'HomeFilled',
     },
-    {
-        label: '躲避尖刺',
-        value: '8',
-        path: '/DontHitTheSpike',
-        icon: 'Aim',
-    },
+    // {
+    //     label: '躲避尖刺',
+    //     value: '8',
+    //     path: '/DontHitTheSpike',
+    //     icon: 'Aim',
+    // },
     {
         label: '二维地图',
         value: '2',
@@ -24,12 +24,12 @@ export const menu_top_config = [
         path: '/threeGuiBase',
         icon: 'Monitor',
     },
-    {
-        label: '博客管理',
-        value: '4',
-        path: '/blogManage',
-        icon: 'Management',
-    },
+    // {
+    //     label: '博客管理',
+    //     value: '4',
+    //     path: '/blogManage',
+    //     icon: 'Management',
+    // },
     {
         label: '简历展示',
         value: '5',

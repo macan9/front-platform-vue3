@@ -172,7 +172,7 @@ function createRenderer() {
   // 设置场景大小
   renderer.setSize(window.innerWidth, window.innerHeight - 60)
   // 设置相机位置(x,y,z)
-  camera.position.set(300, 300, 0)
+  camera.position.set(90, 12, 90)
   // 通过lookAt将摄像机指向场景中心,(默认指向0,0,0)
   camera.lookAt(scene.position)
   // 开启阴影
@@ -193,7 +193,7 @@ function createRenderer() {
   controls.minPolarAngle = Math.PI * 0.31
   controls.maxPolarAngle = Math.PI * 0.31
   controls.minDistance = 46
-  controls.maxDistance = 150
+  controls.maxDistance = 125
   controls.target.set(0, 8, 0)
   controls.update()
   renderer.render(scene, camera)

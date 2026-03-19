@@ -20,7 +20,7 @@ export const globals_config = {
     gitee_user_config: {
         owner: 'mc150324',
         repo: 'PicGo',
-        path: 'ceshi',
+        path: '',
         access_token: 'd18bdb11f5111a41281baef050f7933d',
         message: 'image upload'
     },
