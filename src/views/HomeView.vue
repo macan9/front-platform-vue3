@@ -93,7 +93,7 @@ export default {
   .main-display {
     flex: 1;
     min-width: 0;
-    border-radius: 24px;
+    // border-radius: 24px;
     overflow: hidden;
   }
 

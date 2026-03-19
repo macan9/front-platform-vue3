@@ -7,7 +7,8 @@ const resolveIsLocalRuntime = () => {
     return hostname === 'localhost' || hostname === '127.0.0.1'
 }
 
-const onlineServiceHost = 'http://139.196.158.225:3000'
+// const onlineServiceHost = 'http://139.196.158.225:3000'
+const onlineServiceHost = 'http://0.0.0.0:3000'
 const apiServiceHost = resolveIsLocalRuntime() ? '' : onlineServiceHost
 
 export const globals_config = {

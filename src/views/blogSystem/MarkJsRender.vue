@@ -18,26 +18,11 @@
 
 <script setup>
 
-import { Marked }  from 'marked'
-import { markedHighlight } from "marked-highlight";
 import { onMounted,ref,computed } from 'vue';
-
-import hljs from 'highlight.js'
+import { renderMarkdown } from '@/utils/markdown.js'
 // import 'highlight.js/styles/github.css';
 // import 'highlight.js/styles/atom-one-dark.css';
 import 'highlight.js/styles/atom-one-light.css';
-
-
-console.log(hljs,'--hljs--')
-const marked = new Marked(
-  markedHighlight({
-    langPrefix: 'hljs language-',
-    highlight(code, lang) {
-      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-      return hljs.highlight(code, { language }).value;
-    }
-  })
-);
 // const rendererMD = new marked.Renderer();
 
 
@@ -63,14 +48,14 @@ const themeClass = computed(() => isLightTheme.value ? 'hljs-atom-one-light' : '
 
 
 const textareaChange = (val) => {
-    markdownHTML.value = marked.parse(val);
+    markdownHTML.value = renderMarkdown(val);
 }
 
 
 const markdownString = '# threejs-demo\n### Compiles and hot-reloads for development \n```npm run serve```\n## 配置项记录\n### 默认运行端口\n ```js\nmodule.exports = {\n  devServer: {\n   port: 8010,\n  }\n } \n```';
 const mds = ref(markdownString)
 const changeMdString = () => {
-    markdownHTML.value = marked.parse(mds.value);
+    markdownHTML.value = renderMarkdown(mds.value);
 }
 
 onMounted(()=>{
@@ -79,7 +64,7 @@ onMounted(()=>{
     // markdownString 传入 md 字符串 返回一个 html 字符串
     // options是你渲染的设置——它是一个对象。
     // callback是回调函数。如果 options 参数没有定义，它就是第二个参数。
-    markdownHTML.value = marked.parse(mds.value);
+    markdownHTML.value = renderMarkdown(mds.value);
 })
 
 </script>

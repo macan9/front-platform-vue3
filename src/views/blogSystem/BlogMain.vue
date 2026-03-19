@@ -34,23 +34,20 @@
 								v-for="(item, index) in blogList"
 								:key="getRowId(item, index)"
 								class="blog-card"
+								@click="openBlogDetail(item, index)"
 							>
 								<div class="blog-cover-wrap">
 									<img
-										v-if="getCover(item)"
 										class="blog-cover"
 										:src="getCover(item)"
 										:alt="item.title || '博客封面'"
 									>
-									<div v-else class="blog-cover blog-cover-placeholder">
-										<span>{{ getTitleInitial(item) }}</span>
-									</div>
 								</div>
 
 								<div class="blog-content">
 									<div class="blog-title-row">
 										<h3 class="blog-title">{{ item.title || '未命名博客' }}</h3>
-										<div class="blog-time">{{ formatTime(item.updated_at || item.created_at) }}</div>
+										<div class="blog-time">{{ formatDate(item.updated_at || item.created_at) }}</div>
 									</div>
 
 									<p class="blog-summary">
@@ -69,87 +66,28 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 import { postListGet } from '@/apis/blogApis.js'
+import {
+	formatDate,
+	getCover,
+	getRandomCover,
+	getRowId,
+	getSummary,
+	thumbnailCoverList,
+} from '@/views/blogSystem/blogHelpers.js'
 
+const router = useRouter()
 const blogList = ref([])
 const loading = ref(false)
-const localCoverList = Array.from({ length: 10 }, (_, index) => `/img/blogThumbnails/cover-${String(index + 1).padStart(2, '0')}.svg`)
 
-const coverFieldList = [
-	'cover',
-	'coverUrl',
-	'cover_url',
-	'image',
-	'imageUrl',
-	'image_url',
-	'img',
-	'imgUrl',
-	'img_url',
-	'thumbnail',
-	'thumb',
-	'banner',
-]
-
-const summaryFieldList = [
-	'summary',
-	'desc',
-	'description',
-	'introduction',
-	'intro',
-	'content',
-	'markdown',
-	'md',
-]
-
-const getRowId = (row, index) => row?.id ?? row?._id ?? row?.postId ?? row?.post_id ?? `${row?.title || 'blog'}-${index}`
-
-const pickField = (row, fieldList) => {
-	for (const field of fieldList) {
-		const value = row?.[field]
-		if (typeof value === 'string' && value.trim()) {
-			return value.trim()
-		}
+const openBlogDetail = (row, index) => {
+	const id = getRowId(row, index)
+	if (!id) {
+		ElMessage.warning('未找到博客 id')
+		return
 	}
-	return ''
-}
-
-const stripMarkdown = (value = '') => {
-	return String(value)
-		.replace(/!\[[^\]]*]\([^)]+\)/g, ' ')
-		.replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
-		.replace(/[`>#*_~-]/g, ' ')
-		.replace(/\n+/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim()
-}
-
-const getRandomLocalCover = () => {
-	const randomIndex = Math.floor(Math.random() * localCoverList.length)
-	return localCoverList[randomIndex]
-}
-
-const getCover = (row) => pickField(row, coverFieldList) || row?.fallbackCover || ''
-
-const getSummary = (row) => {
-	const rawText = pickField(row, summaryFieldList)
-	const text = stripMarkdown(rawText)
-	if (!text) return '这篇博客暂时还没有简介内容。'
-	return text.length > 120 ? `${text.slice(0, 120)}...` : text
-}
-
-const getTitleInitial = (row) => {
-	const title = row?.title?.trim?.()
-	return title ? title.slice(0, 1).toUpperCase() : 'B'
-}
-
-const formatTime = (val) => {
-	if (!val) return ''
-	const d = new Date(val)
-	if (Number.isNaN(d.getTime())) return String(val)
-	const yyyy = d.getFullYear()
-	const mm = String(d.getMonth() + 1).padStart(2, '0')
-	const dd = String(d.getDate()).padStart(2, '0')
-	return `${yyyy}-${mm}-${dd}`
+	router.push(`/blogDisplay/${id}`)
 }
 
 const getBlogList = async () => {
@@ -159,7 +97,7 @@ const getBlogList = async () => {
 		const list = Array.isArray(data?.data) ? data.data : []
 		blogList.value = list.map((item) => ({
 			...item,
-			fallbackCover: getRandomLocalCover(),
+			fallbackCover: getRandomCover(thumbnailCoverList),
 		}))
 	} catch (error) {
 		console.error('获取博客列表失败', error)
@@ -226,6 +164,7 @@ getBlogList()
 	}
 
 	.blog-card {
+		margin-top: 5px;
 		display: flex;
 		align-items: stretch;
 		gap: 20px;
@@ -234,6 +173,14 @@ getBlogList()
 		background: linear-gradient(135deg, #ffffff 0%, #f6faff 100%);
 		border: 1px solid rgba(204, 220, 235, 0.95);
 		box-shadow: 0 10px 24px rgba(108, 140, 170, 0.10);
+		cursor: pointer;
+		transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+	}
+
+	.blog-card:hover {
+		transform: translateY(-2px);
+		border-color: rgba(143, 184, 224, 0.95);
+		box-shadow: 0 16px 32px rgba(108, 140, 170, 0.16);
 	}
 
 	.blog-cover-wrap {
@@ -247,19 +194,6 @@ getBlogList()
 		border-radius: 18px;
 		object-fit: cover;
 		background: #dbe7f2;
-	}
-
-	.blog-cover-placeholder {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background:
-			linear-gradient(135deg, rgba(91, 163, 255, 0.95), rgba(129, 207, 255, 0.82)),
-			linear-gradient(180deg, #d7e6f8, #eef5fb);
-		color: #fff;
-		font-size: 42px;
-		font-weight: 700;
-		letter-spacing: 0.08em;
 	}
 
 	.blog-content {

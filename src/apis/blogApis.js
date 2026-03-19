@@ -16,8 +16,12 @@ export const postListGet = async (params = null) => {
 }
 
 // 文章详情查询
-export const postInfoGet = async (id) => {
-	return await getApi(`${BASE_URL}/${id}`)
+export const postInfoGet = async () => {
+	return await getApi(`${BASE_URL}`)
+}
+
+export const postSingleInfoGet = async (id) => {
+	return await getApi(`${BASE_URL}/single/${id}`)
 }
 
 // 新增文章
