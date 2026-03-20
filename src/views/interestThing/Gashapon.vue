@@ -113,7 +113,6 @@
 							<div class="result-card" :class="{ active: openedPrize }" :style="panelStyle">
 								<template v-if="openedPrize">
 									<div ref="shineRef" class="result-shine" />
-									<p class="result-rarity">{{ openedPrize.rarity }}</p>
 									<div class="result-icon">{{ openedPrize.icon }}</div>
 									<h3>{{ openedPrize.name }}</h3>
 									<p class="result-desc">{{ openedPrize.description }}</p>
@@ -129,33 +128,43 @@
 								</template>
 							</div>
 
-							<div class="history-panel">
-								<div class="history-head">
-									<h3>最近掉落</h3>
-									<button type="button" class="history-clear" @click="clearHistory">清空</button>
-								</div>
-
-								<div v-if="history.length" class="history-list">
-									<div
-										v-for="entry in history"
-										:key="entry.historyId"
-										class="history-item"
-										:style="{ '--history-color': entry.color }"
-									>
-										<span class="history-icon">{{ entry.icon }}</span>
-										<div>
-											<p class="history-name">{{ entry.name }}</p>
-											<p class="history-meta">{{ entry.rarity }}</p>
-										</div>
-									</div>
-								</div>
-								<p v-else class="history-empty">还没有记录，先摇一颗。</p>
+							<div class="history-entry">
+								<button type="button" class="history-open-button" @click="showHistoryDialog = true">
+									查看最近掉落
+								</button>
+								<p class="history-entry-tip">
+									{{ history.length ? `当前已记录 ${history.length} 条掉落` : '还没有记录，先摇一颗。' }}
+								</p>
 							</div>
 						</div>
 					</div>
 				</div>
 			</div>
 		</div>
+
+		<el-dialog v-model="showHistoryDialog" title="最近掉落" width="420px" append-to-body style="margin-top: 20%;">
+			<div class="history-dialog-body">
+				<div class="history-dialog-actions">
+					<button type="button" class="history-clear" @click="clearHistory">清空记录</button>
+				</div>
+
+				<div v-if="history.length" class="history-list">
+					<div
+						v-for="entry in history"
+						:key="entry.historyId"
+						class="history-item"
+						:style="{ '--history-color': entry.color }"
+					>
+						<span class="history-icon">{{ entry.icon }}</span>
+						<div>
+							<p class="history-name">{{ entry.name }}</p>
+							<p class="history-meta">{{ entry.rarity }}</p>
+						</div>
+					</div>
+				</div>
+				<p v-else class="history-empty">还没有记录，先摇一颗。</p>
+			</div>
+		</el-dialog>
 	</section>
 </template>
 
@@ -183,6 +192,7 @@ const canOpenCapsule = ref(false)
 const dispensedPrize = ref(null)
 const openedPrize = ref(null)
 const history = ref([])
+const showHistoryDialog = ref(false)
 
 const prizes = [
 	{ id: 1, name: '霓虹猫咪', icon: '🐈', description: '一只会在夜里发光的电子猫，尾巴像霓虹灯一样晃来晃去。', rarity: 'Rare', theme: '霓虹粉', color: '#ff6fa9', weight: 2 },
@@ -758,7 +768,7 @@ onBeforeUnmount(() => {
 	position: absolute;
 	z-index: 1;
 	right: 6px;
-	top: 27px;
+	top: 28px;
 	width: 36px;
 	height: 36px;
 	border-radius: 50%;
@@ -916,19 +926,7 @@ onBeforeUnmount(() => {
 	pointer-events: none;
 }
 
-.result-rarity {
-	position: relative;
-	z-index: 1;
-	display: inline-flex;
-	padding: 6px 10px;
-	border-radius: 999px;
-	background: color-mix(in srgb, var(--result-color) 14%, white);
-	color: color-mix(in srgb, var(--result-color) 62%, black);
-	font-size: 12px;
-	font-weight: 800;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-}
+
 
 .result-icon,
 .placeholder-icon {
@@ -979,22 +977,38 @@ onBeforeUnmount(() => {
 	color: #7a4218;
 }
 
-.history-panel {
-	padding: 18px;
-	border-radius: 24px;
-	background: rgba(255, 255, 255, 0.56);
+.history-entry {
+	display: grid;
+	gap: 10px;
 }
 
-.history-head {
+.history-open-button {
+	width: 100%;
+	border: 0;
+	border-radius: 18px;
+	padding: 14px 16px;
+	background: linear-gradient(135deg, #ffb45f, #ef6f30);
+	color: #fff9f1;
+	font-size: 15px;
+	font-weight: 700;
+	cursor: pointer;
+	box-shadow: 0 18px 28px rgba(187, 91, 30, 0.18);
+}
+
+.history-entry-tip {
+	font-size: 13px;
+	color: rgba(103, 48, 16, 0.7);
+	text-align: center;
+}
+
+.history-dialog-body {
+	display: grid;
+	gap: 14px;
+}
+
+.history-dialog-actions {
 	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 14px;
-}
-
-.history-head h3 {
-	font-size: 18px;
-	color: #6e2f0d;
+	justify-content: flex-end;
 }
 
 .history-clear {

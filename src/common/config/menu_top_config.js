@@ -5,18 +5,24 @@ export const menu_top_config = [
         path: '/blogManage',
         icon: 'HomeFilled',
     },
+    {
+        label: '趣味功能',
+        value: '7',
+        path: '/starSea',
+        icon: 'MagicStick',
+    },
     // {
     //     label: '躲避尖刺',
     //     value: '8',
     //     path: '/DontHitTheSpike',
     //     icon: 'Aim',
     // },
-    {
-        label: '二维地图',
-        value: '2',
-        path: '/leafletMap',
-        icon: 'MapLocation',
-    },
+    // {
+    //     label: '二维地图',
+    //     value: '2',
+    //     path: '/leafletMap',
+    //     icon: 'MapLocation',
+    // },
     
     {
         label: '三维场景',
@@ -42,11 +48,6 @@ export const menu_top_config = [
         path: '/blogManage',
         icon: 'ChatDotRound',
     },
-    {
-        label: '趣味功能',
-        value: '7',
-        path: '/starSea',
-        icon: 'MagicStick',
-    },
+    
 ]
 

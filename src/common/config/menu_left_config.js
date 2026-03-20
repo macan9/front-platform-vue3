@@ -129,6 +129,12 @@ export const menu_left_config = [
         pid: '7',
         children: [
             {
+                label: '扭蛋机',
+                value: '7-3',
+                path: '/gashapon',
+                icon: 'GoodsFilled',
+            },
+            {
                 label: '星海',
                 value: '7-1',
                 path: '/starSea',
@@ -140,12 +146,7 @@ export const menu_left_config = [
                 path: '/fireworks',
                 icon: 'Promotion',
             },
-            {
-                label: '扭蛋机',
-                value: '7-3',
-                path: '/gashapon',
-                icon: 'Promotion',
-            },
+            
             {
                 label: '涂鸦',
                 value: '7-4',
