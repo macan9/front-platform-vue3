@@ -33,7 +33,7 @@ export const menu_top_config = [
     {
         label: '简历展示',
         value: '5',
-        path: '/useView',
+        path: '/MyResume',
         icon: 'Tickets',
     },
     {

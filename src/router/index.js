@@ -79,8 +79,8 @@ const routes = [
     ]
   },
   {
-    path: '/useView',
-    name: 'useView',
+    path: '/MyResume',
+    name: 'MyResume',
     component: () => import(/* webpackChunkName: "about" */ '@/views/UseView.vue')
   },
   {

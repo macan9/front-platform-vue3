@@ -109,7 +109,7 @@ export const menu_left_config = [
             {
                 label: '用户简历',
                 value: '5-1',
-                path: '/useView',
+                path: '/MyResume',
                 icon: 'Tickets',
             },
         ],
