@@ -88,6 +88,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
+import { isApiSuccess } from '@/common/requests/requests.js'
 import { DailyTimeFormat } from '@/utils/utils.js'
 import { gameScoreCreateReq } from '@/apis/gameScoreApis.js'
 import LeaderboardDialog from '@/views/three/components/LeaderboardDialog.vue'
@@ -176,7 +177,7 @@ const recordScore = async () => {
   savingScore.value = true
   try {
     const res = await gameScoreCreateReq({ score: scoreValue, scoreTime, userId })
-    const ok = res?.code === 0 || res?.success === true || !!res?.data
+    const ok = isApiSuccess(res)
     if (!ok) {
       const msg = res?.message || '记录失败'
       recordError.value = String(msg)

@@ -100,7 +100,7 @@
 import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { postCreateReq, postDelete, postInfoPut, postListGet } from '@/apis/blogApis.js'
-import { ensureApiSuccess } from '@/common/requests/requests.js'
+import { ensureApiSuccess, isApiSuccess } from '@/common/requests/requests.js'
 import BlogEditorDialog from '@/views/blogSystem/components/BlogEditorDialog.vue'
 import BlogPreviewDialog from '@/views/blogSystem/components/BlogPreviewDialog.vue'
 import { formatDateTime, getContent, getRowId } from '@/views/blogSystem/blogHelpers.js'
@@ -134,6 +134,14 @@ const previewData = reactive({
 
 const editorRules = {
 	title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+}
+
+const resolveListData = (response) => {
+	if (Array.isArray(response?.data)) return response.data
+	if (Array.isArray(response?.data?.data)) return response.data.data
+	if (Array.isArray(response?.items)) return response.items
+	if (Array.isArray(response?.data?.items)) return response.data.items
+	return []
 }
 
 const filterTableData = computed(() => {
@@ -179,11 +187,18 @@ const getPostData = async () => {
 		const userId = currentUser?.id
 		const auth = currentUser?.auth ?? currentUser?.authority ?? currentUser?.role
 		const query = Number(auth) === 1 ? {} : userId ? { userId } : {}
-		const { data } = await postListGet(query)
-		tableData.value = Array.isArray(data?.data) ? data.data : []
+		const response = await postListGet(query)
+
+		if (!isApiSuccess(response)) {
+			ElMessage.error(String(response?.message || '获取文章列表失败'))
+			tableData.value = []
+			return
+		}
+
+		tableData.value = resolveListData(response)
 	} catch (e) {
 		console.error('获取文章列表失败', e)
-		ElMessage.error('获取文章列表失败')
+		ElMessage.error(String(e?.message || '获取文章列表失败'))
 		tableData.value = []
 	} finally {
 		loading.value = false
@@ -200,7 +215,7 @@ const openCreate = () => {
 const openEdit = (row) => {
 	const id = getRowId(row)
 	if (!id) {
-		ElMessage.warning('未找到文章 id')
+		ElMessage.warning('未找到文章id')
 		return
 	}
 
@@ -223,34 +238,45 @@ const openPreview = (payload = {}) => {
 const handleEditorSubmit = async (formData) => {
 	if (submitting.value) return
 	submitting.value = true
-	try {
-		if (editorMode.value === 'create') {
-			const res = await postCreateReq({ ...formData })
-			ensureApiSuccess(res, '新增失败')
-			ElMessage.success('新增成功')
-		} else {
-			if (!editingId.value) {
-				ElMessage.warning('未找到文章 id')
-				return
-			}
-			const res = await postInfoPut(editingId.value, { ...formData })
-			ensureApiSuccess(res, '保存失败')
-			ElMessage.success('保存成功')
+
+	if (editorMode.value === 'create') {
+		const response = await postCreateReq({ ...formData })
+		if (!isApiSuccess(response)) {
+			ElMessage.error(String(response?.message || '新增失败'))
+			submitting.value = false
+			return
 		}
+
+		ElMessage.success('新增成功')
 		editorVisible.value = false
-		await getPostData()
-	} catch (e) {
-		console.error(editorMode.value === 'create' ? '新增失败' : '保存失败', e)
-		ElMessage.error(editorMode.value === 'create' ? '新增失败' : '保存失败')
-	} finally {
 		submitting.value = false
+		await getPostData()
+		return
 	}
+
+	if (!editingId.value) {
+		ElMessage.warning('未找到文章id')
+		submitting.value = false
+		return
+	}
+
+	const response = await postInfoPut(editingId.value, { ...formData })
+	if (!isApiSuccess(response)) {
+		ElMessage.error(String(response?.message || '保存失败'))
+		submitting.value = false
+		return
+	}
+
+	ElMessage.success('保存成功')
+	editorVisible.value = false
+	submitting.value = false
+	await getPostData()
 }
 
 const handleDelete = async (row) => {
 	const id = getRowId(row)
 	if (!id) {
-		ElMessage.warning('未找到文章 id')
+		ElMessage.warning('未找到文章id')
 		return
 	}
 

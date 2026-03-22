@@ -23,13 +23,10 @@ export default {
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const canvasRef = ref(null)
-const rocketsCount = ref(0)
-const particlesCount = ref(0)
 const autoLaunch = ref(true)
 
 const rockets = []
 const particles = []
-const maxParticles = 600
 const explosionColors = [12, 24, 36, 48, 195, 210, 280, 320]
 const HORIZONTAL_SAFE_PADDING = 72
 const BURST_TOP_RATIO = 0.18
@@ -39,10 +36,15 @@ let context = null
 let animationFrameId = 0
 let autoLaunchTimer = 0
 let resizeHandler = null
+let visibilityHandler = null
 let screenWidth = 0
 let screenHeight = 0
+let devicePixelRatio = 1
+let isCompactMode = false
+let isRunning = false
 
-const autoLaunchInterval = computed(() => 780)
+const maxParticles = computed(() => (isCompactMode ? 220 : 420))
+const autoLaunchInterval = computed(() => (isCompactMode ? 1200 : 900))
 
 function randomBetween(min, max) {
   return Math.random() * (max - min) + min
@@ -98,29 +100,29 @@ class Particle {
   render(ctx) {
     if (!this.exists()) return
 
-    ctx.save()
-    ctx.globalCompositeOperation = 'lighter'
+    const radius = Math.max(0.6, this.flick ? Math.random() * this.size : this.size)
 
-    const radius = this.flick ? Math.random() * this.size : this.size
-    const gradient = ctx.createRadialGradient(
-      this.pos.x,
-      this.pos.y,
-      0.1,
-      this.pos.x,
-      this.pos.y,
-      radius
-    )
+    if (isCompactMode) {
+      ctx.fillStyle = `hsla(${this.color}, 100%, 62%, ${Math.max(this.alpha * 0.9, 0.12)})`
+    } else {
+      const gradient = ctx.createRadialGradient(
+        this.pos.x,
+        this.pos.y,
+        0.1,
+        this.pos.x,
+        this.pos.y,
+        radius
+      )
 
-    gradient.addColorStop(0.1, `rgba(255, 255, 255, ${this.alpha})`)
-    gradient.addColorStop(0.8, `hsla(${this.color}, 100%, 58%, ${this.alpha})`)
-    gradient.addColorStop(1, `hsla(${this.color}, 100%, 58%, 0.08)`)
+      gradient.addColorStop(0.12, `rgba(255, 255, 255, ${this.alpha})`)
+      gradient.addColorStop(0.72, `hsla(${this.color}, 100%, 58%, ${this.alpha})`)
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      ctx.fillStyle = gradient
+    }
 
-    ctx.fillStyle = gradient
     ctx.beginPath()
     ctx.arc(this.pos.x, this.pos.y, radius, 0, Math.PI * 2, true)
-    ctx.closePath()
     ctx.fill()
-    ctx.restore()
   }
 
   exists() {
@@ -142,21 +144,21 @@ class Rocket extends Particle {
 
   explode() {
     const scale = this.blastScale
-    const count = Math.round(randomBetween(48, 116) * scale)
+    const count = Math.round(randomBetween(32, isCompactMode ? 62 : 96) * scale)
 
     for (let i = 0; i < count; i += 1) {
       const particle = new Particle(this.pos)
       const angle = Math.random() * Math.PI * 2
-      const speed = Math.cos(Math.random() * Math.PI / 2) * randomBetween(6, 15) * scale
+      const speed = Math.cos(Math.random() * Math.PI / 2) * randomBetween(5.5, isCompactMode ? 10 : 14) * scale
 
       particle.vel.x = Math.cos(angle) * speed
       particle.vel.y = Math.sin(angle) * speed
-      particle.size = randomBetween(4, 10) * Math.min(scale, 1.25)
-      particle.gravity = randomBetween(0.16, 0.24)
+      particle.size = randomBetween(isCompactMode ? 2.4 : 3.4, isCompactMode ? 5.2 : 8.4) * Math.min(scale, 1.2)
+      particle.gravity = randomBetween(0.16, 0.23)
       particle.resistance = randomBetween(0.9, 0.94)
-      particle.shrink = randomBetween(0.92, 0.975)
-      particle.fade = randomBetween(0.01, 0.024)
-      particle.flick = true
+      particle.shrink = randomBetween(0.92, 0.972)
+      particle.fade = randomBetween(isCompactMode ? 0.014 : 0.01, isCompactMode ? 0.03 : 0.022)
+      particle.flick = !isCompactMode
       particle.color = this.explosionColor
 
       particles.push(particle)
@@ -164,45 +166,40 @@ class Rocket extends Particle {
   }
 }
 
-function syncCounters() {
-  rocketsCount.value = rockets.length
-  particlesCount.value = particles.length
-}
-
 function resizeCanvas() {
   const canvas = canvasRef.value
   if (!canvas || !context) return
 
-  const dpr = window.devicePixelRatio || 1
   screenWidth = window.innerWidth
   screenHeight = window.innerHeight
+  isCompactMode = screenWidth <= 768 || window.matchMedia('(pointer: coarse)').matches
+  devicePixelRatio = Math.min(window.devicePixelRatio || 1, isCompactMode ? 1.25 : 1.75)
 
-  canvas.width = Math.round(screenWidth * dpr)
-  canvas.height = Math.round(screenHeight * dpr)
+  canvas.width = Math.round(screenWidth * devicePixelRatio)
+  canvas.height = Math.round(screenHeight * devicePixelRatio)
 
-  context.setTransform(dpr, 0, 0, dpr, 0, 0)
+  context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0)
 }
 
 function launchRocket(x = Math.random() * screenWidth) {
-  if (!screenWidth || rockets.length >= 12) return
+  if (!screenWidth || rockets.length >= (isCompactMode ? 5 : 10)) return
 
   const launchX = getSafeLaunchX(x)
   const edgeRatio = Math.abs(launchX - screenWidth / 2) / (screenWidth / 2)
   const rocket = new Rocket(launchX)
-  rocket.vel.y = randomBetween(-10, -6.5)
-  rocket.vel.x = randomBetween(-2.2, 2.2) * (1 - edgeRatio * 0.45)
-  rocket.size = randomBetween(5, 7)
+  rocket.vel.y = randomBetween(isCompactMode ? -8.2 : -10, isCompactMode ? -5.8 : -6.5)
+  rocket.vel.x = randomBetween(-2, 2) * (1 - edgeRatio * 0.45)
+  rocket.size = randomBetween(isCompactMode ? 3.5 : 5, isCompactMode ? 5 : 7)
   rocket.shrink = 0.999
   rocket.gravity = 0.03
   rocket.resistance = 0.995
 
   rockets.push(rocket)
-  syncCounters()
 }
 
 function launchBurst() {
   const center = screenWidth / 2
-  const offsets = [-120, -60, 0, 60, 120]
+  const offsets = isCompactMode ? [-60, 0, 60] : [-120, -60, 0, 60, 120]
 
   offsets.forEach((offset) => {
     launchRocket(center + offset)
@@ -218,9 +215,8 @@ function clearScene() {
 }
 
 function updateRockets() {
-  const aliveRockets = []
-
-  rockets.forEach((rocket) => {
+  for (let i = rockets.length - 1; i >= 0; i -= 1) {
+    const rocket = rockets[i]
     rocket.update()
     rocket.pos.x = clamp(rocket.pos.x, HORIZONTAL_SAFE_PADDING * 0.72, screenWidth - HORIZONTAL_SAFE_PADDING * 0.72)
     rocket.render(context)
@@ -232,58 +228,108 @@ function updateRockets() {
 
     if (shouldExplode) {
       rocket.explode()
-    } else if (rocket.exists()) {
-      aliveRockets.push(rocket)
+      rockets.splice(i, 1)
+    } else if (!rocket.exists()) {
+      rockets.splice(i, 1)
     }
-  })
-
-  rockets.length = 0
-  rockets.push(...aliveRockets)
+  }
 }
 
 function updateParticles() {
-  const aliveParticles = []
-
-  particles.forEach((particle) => {
+  for (let i = particles.length - 1; i >= 0; i -= 1) {
+    const particle = particles[i]
     particle.update()
 
     if (particle.exists()) {
       particle.render(context)
-      aliveParticles.push(particle)
+    } else {
+      particles.splice(i, 1)
     }
-  })
+  }
 
-  particles.length = 0
-  particles.push(...aliveParticles.slice(-maxParticles))
+  if (particles.length > maxParticles.value) {
+    particles.splice(0, particles.length - maxParticles.value)
+  }
 }
 
 function animate() {
+  if (!context || !isRunning) return
+
+  context.globalCompositeOperation = 'source-over'
   clearScene()
+  context.globalCompositeOperation = 'lighter'
   updateRockets()
   updateParticles()
-  syncCounters()
 
   animationFrameId = window.requestAnimationFrame(animate)
 }
 
-function restartAutoLaunch() {
+function queueAutoLaunch() {
   if (autoLaunchTimer) {
-    window.clearInterval(autoLaunchTimer)
+    window.clearTimeout(autoLaunchTimer)
     autoLaunchTimer = 0
   }
 
-  if (!autoLaunch.value) return
+  if (!autoLaunch.value || document.hidden) return
 
-  autoLaunchTimer = window.setInterval(() => {
+  const jitter = isCompactMode ? 280 : 180
+  autoLaunchTimer = window.setTimeout(() => {
     launchRocket()
-  }, autoLaunchInterval.value)
+
+    if (!isCompactMode && Math.random() > 0.72) {
+      launchRocket(randomBetween(screenWidth * 0.22, screenWidth * 0.78))
+    }
+
+    queueAutoLaunch()
+  }, autoLaunchInterval.value + randomBetween(-jitter, jitter))
+}
+
+function startAnimation() {
+  if (isRunning || !context) return
+
+  isRunning = true
+  queueAutoLaunch()
+  animate()
+}
+
+function stopAnimation() {
+  isRunning = false
+
+  if (animationFrameId) {
+    window.cancelAnimationFrame(animationFrameId)
+    animationFrameId = 0
+  }
+
+  if (autoLaunchTimer) {
+    window.clearTimeout(autoLaunchTimer)
+    autoLaunchTimer = 0
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopAnimation()
+    return
+  }
+
+  startAnimation()
+}
+
+function handleResize() {
+  resizeCanvas()
+
+  if (!context) return
+
+  context.globalCompositeOperation = 'source-over'
+  context.fillStyle = 'rgba(4, 8, 18, 0.22)'
+  context.fillRect(0, 0, screenWidth, screenHeight)
 }
 
 function handleLaunch(event) {
   const x = event.clientX
   launchRocket(x)
 
-  if (Math.random() > 0.45) {
+  if (!isCompactMode && Math.random() > 0.45) {
     launchRocket(x + randomBetween(-40, 40))
   }
 }
@@ -296,31 +342,35 @@ onMounted(() => {
   const canvas = canvasRef.value
   if (!canvas) return
 
-  context = canvas.getContext('2d')
+  context = canvas.getContext('2d', {
+    alpha: true,
+    desynchronized: true,
+  })
+
+  if (!context) return
+
   resizeCanvas()
 
-  // Use a translucent night layer instead of an opaque fill, so the background image can remain visible.
-  context.fillStyle = 'rgba(4, 8, 18, 0.12)'
+  context.fillStyle = 'rgba(4, 8, 18, 0.22)'
   context.fillRect(0, 0, screenWidth, screenHeight)
 
-  resizeHandler = () => resizeCanvas()
-  window.addEventListener('resize', resizeHandler)
+  resizeHandler = () => handleResize()
+  visibilityHandler = () => handleVisibilityChange()
+  window.addEventListener('resize', resizeHandler, { passive: true })
+  document.addEventListener('visibilitychange', visibilityHandler)
 
-  restartAutoLaunch()
-  animate()
+  startAnimation()
 })
 
 onBeforeUnmount(() => {
-  if (animationFrameId) {
-    window.cancelAnimationFrame(animationFrameId)
-  }
-
-  if (autoLaunchTimer) {
-    window.clearInterval(autoLaunchTimer)
-  }
+  stopAnimation()
 
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler)
+  }
+
+  if (visibilityHandler) {
+    document.removeEventListener('visibilitychange', visibilityHandler)
   }
 })
 </script>

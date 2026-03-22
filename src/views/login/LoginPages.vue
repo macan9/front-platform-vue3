@@ -100,12 +100,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { loginReq, getCaptcha } from '@/apis/userApis.js'
 import { ElMessage } from 'element-plus'
+import { isApiSuccess } from '@/common/requests/requests.js'
 import { encryptPasswordFields, validateUsername } from '@/common/utils/authSecurity.js'
 import UserRegister from '@/components/user/UserRegister.vue'
-
-const isRequestSucceeded = (payload) => {
-  return payload?.success === true || payload?.code === 0 || !!payload?.data
-}
 
 export default {
   components: { UserRegister },
@@ -160,7 +157,7 @@ export default {
       const res = await loginReq(userData)
       const { data } = res || {}
 
-      if (isRequestSucceeded(res) && data) {
+      if (isApiSuccess(res) && data) {
         ElMessage({
           message: '登录成功，欢迎回来',
           type: 'success',
@@ -168,7 +165,7 @@ export default {
 
         localStorage.setItem('loginStatus', 'true')
         localStorage.setItem('userInfo', JSON.stringify(data))
-        router.push('/blogManage')
+        router.push('/BlogMain')
         return
       }
 

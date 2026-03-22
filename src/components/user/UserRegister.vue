@@ -84,11 +84,8 @@
 import { defineProps, defineEmits, toRef, ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { registerReq, getCaptcha } from '@/apis/userApis.js'
+import { isApiSuccess } from '@/common/requests/requests.js'
 import { encryptPasswordFields, validatePassword, validateUsername } from '@/common/utils/authSecurity.js'
-
-const isRequestSucceeded = (payload) => {
-  return payload?.success === true || payload?.code === 0 || !!payload?.data
-}
 
 const props = defineProps({
   dialogVisible: {
@@ -183,7 +180,7 @@ const registerUser = async (formEl) => {
     delete submitData.check_password
 
     const res = await registerReq(submitData)
-    if (!isRequestSucceeded(res)) {
+    if (!isApiSuccess(res)) {
       loadCaptcha()
       return
     }
