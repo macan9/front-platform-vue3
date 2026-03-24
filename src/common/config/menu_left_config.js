@@ -114,7 +114,7 @@ export const menu_left_config = [
             {
                 label: '聊天室间',
                 value: '6-1',
-                path: '/blogManage',
+                path: '/chatRoom',
                 icon: 'ChatDotRound',
             },
         ],

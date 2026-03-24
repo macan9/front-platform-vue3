@@ -7,16 +7,27 @@ const resolveIsLocalRuntime = () => {
     return hostname === 'localhost' || hostname === '127.0.0.1'
 }
 
-const onlineServiceHost = 'http://139.196.158.225:3000'
-// const onlineServiceHost = 'http://0.0.0.0:3000'
+const service_mode = 'online' // 'online' | 'local'
+const isOnlineService = service_mode === 'online'
 
-const apiServiceHost = resolveIsLocalRuntime() ? '' : onlineServiceHost
+const localServiceHost = 'http://127.0.0.1:3000'
+const onlineServiceHost = 'http://139.196.158.225:3000'
+const selectedServiceHost = isOnlineService ? onlineServiceHost : localServiceHost
+
+const localWsServiceHost = 'ws://127.0.0.1:3000'
+const onlineWsServiceHost = 'ws://139.196.158.225:3000'
+const selectedWsServiceHost = isOnlineService ? onlineWsServiceHost : localWsServiceHost
+
+const apiServiceHost = !isOnlineService && resolveIsLocalRuntime() ? '' : selectedServiceHost
 
 export const globals_config = {
+    service_mode,
     // Use the dev proxy locally so captcha and login stay in the same session.
     api_service: trimTrailingSlash(apiServiceHost),
     // Keep absolute backend host for uploaded assets such as avatars.
-    host_service: trimTrailingSlash(onlineServiceHost),
+    host_service: trimTrailingSlash(selectedServiceHost),
+    // WebSocket base host, ChatRoom will append /ws and token query automatically.
+    ws_service: trimTrailingSlash(selectedWsServiceHost),
 
     gitee_user_config: {
         owner: 'mc150324',

@@ -43,6 +43,7 @@ export default {
     const hasPadding = ref(true)
     const noPaddingRoutes = ['/leafletMap', '/threeGuiBase', '/threePlanet', '/ThreeIsland', '/DontHitTheSpike', '/fireworks']
     const showLeftMenu = computed(() => {
+      if (route.path === '/chatRoom') return false
       if (route.path !== '/DontHitTheSpike') return true
       return route.query.menuSource === 'left'
     })

@@ -14,6 +14,11 @@ const routes = [
         component: () => import('@/views/blogSystem/BlogManage.vue')
       },
       {
+        path: '/chatRoom',
+        name: 'chatRoom',
+        component: () => import('@/views/chatRoom/ChatRoom.vue')
+      },
+      {
         path: '/BlogMain',
         name: 'BlogMain',
         meta: { public: true },

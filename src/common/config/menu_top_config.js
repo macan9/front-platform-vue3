@@ -45,7 +45,7 @@ export const menu_top_config = [
     {
         label: '消息模块',
         value: '6',
-        path: '/blogManage',
+        path: '/chatRoom',
         icon: 'ChatDotRound',
     },
     
