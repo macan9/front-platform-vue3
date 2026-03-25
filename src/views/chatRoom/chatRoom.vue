@@ -48,6 +48,43 @@
       </div>
     </div>
 
+    <el-dialog
+      v-model="newChatDialogVisible"
+      title="新聊天"
+      width="420px"
+      append-to-body
+      class="new-chat-dialog-wrap"
+    >
+      <div class="new-chat-dialog">
+        <div
+          v-for="user in selectableUsers"
+          :key="user.id"
+          class="new-chat-user"
+        >
+          <div class="new-chat-user-left">
+            <div class="contact-avatar custom-avatar">
+              <img
+                v-if="hasAvatar(user)"
+                :src="user.avatarDisplayUrl"
+                :alt="getDisplayName(user)"
+                class="avatar-image"
+              >
+              <span v-else>{{ getDisplayInitial(user) }}</span>
+            </div>
+            <div class="new-chat-user-main">
+              <div class="new-chat-user-name">{{ getDisplayName(user) }}</div>
+              <div v-if="user.username" class="new-chat-user-sub">{{ user.username }}</div>
+            </div>
+          </div>
+          <el-button type="primary" plain round size="small" @click="chooseNewChatUser(user)">发起聊天</el-button>
+        </div>
+
+        <div v-if="!selectableUsers.length" class="new-chat-empty">
+          没有可添加的用户
+        </div>
+      </div>
+    </el-dialog>
+
     <div class="chat-main">
       <template v-if="activeConversation">
         <div class="chat-header">
@@ -64,7 +101,6 @@
             <div>
               <div class="chat-title">{{ getDisplayName(activeConversation) }}</div>
               <div class="chat-subtitle">
-                <span>用户 ID: {{ activeConversation.id }}</span>
                 <span v-if="activeConversation.username">用户名: {{ activeConversation.username }}</span>
               </div>
             </div>
@@ -94,12 +130,27 @@
                 <span v-else>{{ getDisplayInitial(activeConversation) }}</span>
               </div>
 
-              <div class="message-bubble">
-                <div class="message-content">{{ message.content }}</div>
-                <div class="message-meta">
+              <div class="message-main">
+                <div class="message-bubble">
+                  <div class="message-content">{{ message.content }}</div>
+                </div>
+                <div class="message-meta outside">
                   <span>{{ formatMessageTime(message.createdAt) }}</span>
                   <span v-if="message.isMine">{{ getMessageStatusText(message) }}</span>
                 </div>
+              </div>
+
+              <div
+                v-if="message.isMine"
+                class="message-avatar custom-avatar small-avatar"
+              >
+                <img
+                  v-if="hasAvatar(currentUser)"
+                  :src="currentUser.avatarDisplayUrl"
+                  :alt="getDisplayName(currentUser)"
+                  class="avatar-image"
+                >
+                <span v-else>{{ getDisplayInitial(currentUser) }}</span>
               </div>
             </div>
           </template>
@@ -290,6 +341,20 @@ const normalizeDeliveryReceipt = (payload = {}) => {
   }
 }
 
+const normalizeMessageSent = (payload = {}) => {
+  return {
+    messageId: getMessageId(payload),
+    clientTempId: getClientTempId(payload),
+    fromUserId: getUserId(payload?.from_user),
+    toUserId: getUserId(payload?.to_user),
+    content: String(payload?.content || ''),
+    createdAt: payload?.created_at || new Date().toISOString(),
+    deliveredAt: payload?.delivered_at || '',
+    readAt: payload?.read_at || '',
+    status: String(payload?.status || 'pending'),
+  }
+}
+
 const normalizeMessageRead = (payload = {}) => {
   return {
     messageId: getMessageId(payload),
@@ -314,8 +379,10 @@ export default {
     const draftMessage = ref('')
     const isSending = ref(false)
     const isConversationLoading = ref(false)
+    const newChatDialogVisible = ref(false)
     const connectionStatus = ref('disconnected')
     const currentUser = ref({})
+    const allUsers = ref([])
     const contacts = ref([])
     const conversationState = ref({})
     const messagesByPeer = ref({})
@@ -326,6 +393,7 @@ export default {
     let unsubscribeWs = null
 
     const currentUserId = computed(() => getUserId(currentUser.value?.id))
+    const chatListStorageKey = computed(() => `chatRoomChatList:${currentUserId.value || 'guest'}`)
 
     const decorateContact = (contact = {}) => {
       const avatar = normalizeAvatarUrl(contact?.avatar || contact?.avatarUrl || contact?.avatar_url || '')
@@ -399,20 +467,27 @@ export default {
 
     const contactList = computed(() => {
       return [...contacts.value].sort((a, b) => {
-        const aState = conversationState.value[String(a.id)] || {}
-        const bState = conversationState.value[String(b.id)] || {}
-        const aTime = new Date(aState.latestTime || 0).getTime()
-        const bTime = new Date(bState.latestTime || 0).getTime()
+        const aTime = new Date(a.latestTime || 0).getTime()
+        const bTime = new Date(b.latestTime || 0).getTime()
         return bTime - aTime
       })
     })
 
+    const selectableUsers = computed(() => {
+      const selectedIds = new Set(contacts.value.map((item) => getUserId(item.id)))
+      return allUsers.value
+        .filter((item) => item.id && item.id !== currentUserId.value)
+        .filter((item) => !selectedIds.has(getUserId(item.id)))
+        .sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b), 'zh-Hans-CN'))
+    })
+
     const getConversationMeta = (peerId) => {
+      const contact = contacts.value.find((item) => String(item.id) === String(peerId)) || {}
       const state = conversationState.value[String(peerId)] || {}
       return {
-        latestTime: state.latestTime || '',
-        latestPreview: state.latestPreview || '',
-        unreadCount: Number(state.unreadCount || 0),
+        latestTime: state.latestTime || contact.latestTime || '',
+        latestPreview: state.latestPreview || contact.latestPreview || '',
+        unreadCount: Number(state.unreadCount || contact.unreadCount || 0),
       }
     }
 
@@ -444,6 +519,64 @@ export default {
         currentUser.value = decorateContact(info?.user || {})
       } catch {
         currentUser.value = {}
+      }
+    }
+
+    const saveChatListToLocal = () => {
+      try {
+        const payload = contacts.value.map((item) => ({
+          id: getUserId(item.id),
+          username: String(item.username || ''),
+          nickname: String(item.nickname || ''),
+          avatar: String(item.avatar || ''),
+          latestTime: String(item.latestTime || ''),
+          latestPreview: String(item.latestPreview || ''),
+          unreadCount: Number(item.unreadCount || 0),
+        }))
+        localStorage.setItem(chatListStorageKey.value, JSON.stringify(payload))
+      } catch (error) {
+        console.error('saveChatListToLocal failed', error)
+      }
+    }
+
+    const loadChatListFromLocal = () => {
+      try {
+        const raw = localStorage.getItem(chatListStorageKey.value)
+        const parsed = JSON.parse(raw || '[]')
+        contacts.value = (Array.isArray(parsed) ? parsed : [])
+          .map((item) => decorateContact(item))
+          .filter((item) => item.id && item.id !== currentUserId.value)
+      } catch (error) {
+        contacts.value = []
+        console.error('loadChatListFromLocal failed', error)
+      }
+    }
+
+    const syncContactConversationMeta = (peerId, patch = {}) => {
+      const numericId = getUserId(peerId)
+      if (!numericId) return
+
+      const nextList = [...contacts.value]
+      const index = nextList.findIndex((item) => getUserId(item?.id) === numericId)
+      if (index === -1) return
+
+      nextList.splice(index, 1, {
+        ...nextList[index],
+        latestTime: patch.latestTime ?? nextList[index].latestTime ?? '',
+        latestPreview: patch.latestPreview ?? nextList[index].latestPreview ?? '',
+        unreadCount: Number(patch.unreadCount ?? nextList[index].unreadCount ?? 0),
+      })
+
+      contacts.value = nextList
+      saveChatListToLocal()
+    }
+
+    const syncCurrentUserFromStorage = () => {
+      try {
+        const info = JSON.parse(localStorage.getItem('userInfo') || '{}')
+        currentUser.value = mergeContactRecord(currentUser.value, info?.user || {})
+      } catch {
+        // keep current in-memory user when storage is unavailable
       }
     }
 
@@ -495,6 +628,7 @@ export default {
         }))
       }
       contacts.value = nextList
+      saveChatListToLocal()
     }
 
     const hydrateContactsFromMessage = (message) => {
@@ -593,6 +727,7 @@ export default {
           unreadCount: 0,
         },
       }
+      syncContactConversationMeta(key, { unreadCount: 0 })
     }
 
     const upsertMessage = (incoming) => {
@@ -640,6 +775,13 @@ export default {
             : Number(currentState.unreadCount || 0),
         },
       }
+      syncContactConversationMeta(key, {
+        latestTime: message.createdAt,
+        latestPreview: message.content,
+        unreadCount: !message.isMine && !message.isRead && String(activePeerId.value) !== key
+          ? Number(currentState.unreadCount || 0) + 1
+          : Number(currentState.unreadCount || 0),
+      })
 
       if (String(activePeerId.value) === key) {
         scrollToBottom()
@@ -652,9 +794,15 @@ export default {
     const refreshContacts = async () => {
       const res = await userListGet()
       const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
-      contacts.value = list
+      allUsers.value = list
         .map((item) => decorateContact(item))
         .filter((item) => item.id && item.id !== currentUserId.value)
+      contacts.value = contacts.value.map((item) => {
+        const matched = allUsers.value.find((user) => getUserId(user.id) === getUserId(item.id))
+        return matched ? mergeContactRecord(item, matched) : item
+      })
+
+      saveChatListToLocal()
     }
 
     const refreshUnreadState = async () => {
@@ -698,6 +846,11 @@ export default {
             unreadCount: 0,
           },
         }
+        syncContactConversationMeta(peerId, {
+          latestTime: latest?.createdAt || '',
+          latestPreview: latest?.content || '',
+          unreadCount: 0,
+        })
 
         const unreadIds = list.filter((item) => !item.isMine && !item.isRead && item.id).map((item) => item.id)
         if (unreadIds.length) {
@@ -723,12 +876,16 @@ export default {
     }
 
     const startNewChat = async () => {
-      if (!contactList.value.length) {
+      if (!allUsers.value.length) {
         await refreshContacts()
       }
-      if (contactList.value.length) {
-        await selectConversation(contactList.value[0])
-      }
+      newChatDialogVisible.value = true
+    }
+
+    const chooseNewChatUser = async (user) => {
+      upsertContact(user?.id, user || {})
+      newChatDialogVisible.value = false
+      await selectConversation(user)
     }
 
     const applyDeliveryReceipt = (payload) => {
@@ -736,16 +893,45 @@ export default {
       const peerId = getUserId(receipt.toUserId)
       const candidatePeerIds = peerId ? [String(peerId)] : Object.keys(messagesByPeer.value)
 
+      console.log('delivery_receipt payload', JSON.parse(JSON.stringify(payload || {})))
+      console.log('delivery_receipt normalized', JSON.parse(JSON.stringify(receipt || {})))
+      console.log('delivery_receipt candidatePeerIds', JSON.parse(JSON.stringify(candidatePeerIds || [])))
+
       candidatePeerIds.forEach((peerId) => {
+        const pendingMessages = pendingMessagesByPeer.value[peerId] || []
+        console.log('pending before receipt', peerId, JSON.parse(JSON.stringify(pendingMessages)))
+        console.log('confirmed before receipt', peerId, JSON.parse(JSON.stringify(messagesByPeer.value[peerId] || [])))
+        const matchedPendingMessage = pendingMessages.find((item) => {
+          const sameId = receipt.messageId && item.id && String(item.id) === String(receipt.messageId)
+          const sameTempId = receipt.clientTempId && item.clientTempId && String(item.clientTempId) === String(receipt.clientTempId)
+          const sameContent = String(item.content || '') === String(receipt.content || '')
+          const samePeer = Number(item.toUserId || 0) === Number(receipt.toUserId || 0)
+          const stillPending = String(item.status || '') === 'sending'
+          return sameId || sameTempId || (sameContent && samePeer && stillPending)
+        }) || null
+        console.log('matched pending receipt', peerId, JSON.parse(JSON.stringify(matchedPendingMessage)))
+
         removePendingMessage(peerId, (item) => {
-          const sameId = receipt.messageId && String(item.id) === String(receipt.messageId)
-          const sameTempId = receipt.clientTempId && String(item.clientTempId) === String(receipt.clientTempId)
-          return sameId || sameTempId
+          if (!matchedPendingMessage) return false
+          if (matchedPendingMessage.clientTempId && item.clientTempId) {
+            return String(matchedPendingMessage.clientTempId) === String(item.clientTempId)
+          }
+          if (matchedPendingMessage.id && item.id) {
+            return String(matchedPendingMessage.id) === String(item.id)
+          }
+          return (
+            String(item.content || '') === String(matchedPendingMessage.content || '') &&
+            Number(item.toUserId || 0) === Number(matchedPendingMessage.toUserId || 0) &&
+            String(item.status || '') === String(matchedPendingMessage.status || '')
+          )
         })
+
+        let foundConfirmedMatch = false
         const nextMessages = (messagesByPeer.value[peerId] || []).map((item) => {
           const sameId = receipt.messageId && String(item.id) === String(receipt.messageId)
           const sameTempId = receipt.clientTempId && String(item.clientTempId) === String(receipt.clientTempId)
           if (!sameId && !sameTempId) return item
+          foundConfirmedMatch = true
           return {
             ...item,
             id: receipt.messageId || item.id,
@@ -756,6 +942,85 @@ export default {
             content: receipt.content || item.content,
           }
         })
+
+        if (!foundConfirmedMatch && matchedPendingMessage) {
+          nextMessages.push({
+            ...matchedPendingMessage,
+            id: receipt.messageId || matchedPendingMessage.id,
+            clientTempId: receipt.clientTempId || matchedPendingMessage.clientTempId,
+            status: receipt.status,
+            createdAt: receipt.createdAt || matchedPendingMessage.createdAt,
+            deliveredAt: receipt.deliveredAt,
+            content: receipt.content || matchedPendingMessage.content,
+          })
+        }
+
+        setMessagesForPeer(peerId, nextMessages)
+        console.log('confirmed after receipt', peerId, JSON.parse(JSON.stringify(nextMessages)))
+        console.log('pending after receipt', peerId, JSON.parse(JSON.stringify(pendingMessagesByPeer.value[peerId] || [])))
+      })
+    }
+
+    const applyMessageSent = (payload) => {
+      const sentInfo = normalizeMessageSent(payload)
+      const peerId = getUserId(sentInfo.toUserId)
+      const candidatePeerIds = peerId ? [String(peerId)] : Object.keys(messagesByPeer.value)
+
+      candidatePeerIds.forEach((peerId) => {
+        const pendingMessages = pendingMessagesByPeer.value[peerId] || []
+        const matchedPendingMessage = pendingMessages.find((item) => {
+          const sameId = sentInfo.messageId && item.id && String(item.id) === String(sentInfo.messageId)
+          const sameTempId = sentInfo.clientTempId && item.clientTempId && String(item.clientTempId) === String(sentInfo.clientTempId)
+          const sameContent = String(item.content || '') === String(sentInfo.content || '')
+          const samePeer = Number(item.toUserId || 0) === Number(sentInfo.toUserId || 0)
+          return sameId || sameTempId || (sameContent && samePeer)
+        }) || null
+
+        removePendingMessage(peerId, (item) => {
+          if (!matchedPendingMessage) return false
+          if (matchedPendingMessage.clientTempId && item.clientTempId) {
+            return String(matchedPendingMessage.clientTempId) === String(item.clientTempId)
+          }
+          if (matchedPendingMessage.id && item.id) {
+            return String(matchedPendingMessage.id) === String(item.id)
+          }
+          return (
+            String(item.content || '') === String(matchedPendingMessage.content || '') &&
+            Number(item.toUserId || 0) === Number(matchedPendingMessage.toUserId || 0)
+          )
+        })
+
+        let foundConfirmedMatch = false
+        const nextMessages = (messagesByPeer.value[peerId] || []).map((item) => {
+          const sameId = sentInfo.messageId && String(item.id) === String(sentInfo.messageId)
+          const sameTempId = sentInfo.clientTempId && String(item.clientTempId) === String(sentInfo.clientTempId)
+          if (!sameId && !sameTempId) return item
+          foundConfirmedMatch = true
+          return {
+            ...item,
+            id: sentInfo.messageId || item.id,
+            clientTempId: sentInfo.clientTempId || item.clientTempId,
+            status: sentInfo.status,
+            createdAt: sentInfo.createdAt || item.createdAt,
+            deliveredAt: sentInfo.deliveredAt || item.deliveredAt,
+            readAt: sentInfo.readAt || item.readAt,
+            content: sentInfo.content || item.content,
+          }
+        })
+
+        if (!foundConfirmedMatch && matchedPendingMessage) {
+          nextMessages.push({
+            ...matchedPendingMessage,
+            id: sentInfo.messageId || matchedPendingMessage.id,
+            clientTempId: sentInfo.clientTempId || matchedPendingMessage.clientTempId,
+            status: sentInfo.status,
+            createdAt: sentInfo.createdAt || matchedPendingMessage.createdAt,
+            deliveredAt: sentInfo.deliveredAt || matchedPendingMessage.deliveredAt,
+            readAt: sentInfo.readAt || matchedPendingMessage.readAt,
+            content: sentInfo.content || matchedPendingMessage.content,
+          })
+        }
+
         setMessagesForPeer(peerId, nextMessages)
       })
     }
@@ -782,6 +1047,7 @@ export default {
     const handleWsEvent = async (event) => {
       const eventType = String(event?.type || '')
       const data = event?.data
+      console.log('ws event received', eventType, JSON.parse(JSON.stringify(event || {})))
 
       if (eventType === 'socket_open') {
         connectionStatus.value = 'connected'
@@ -796,11 +1062,12 @@ export default {
       if (eventType === 'auth_success') {
         const authInfo = normalizeAuthSuccess(data)
         connectionStatus.value = 'connected'
-        currentUser.value = decorateContact({
+        currentUser.value = mergeContactRecord(currentUser.value, {
           ...currentUser.value,
           id: authInfo.userId || currentUser.value?.id,
           username: authInfo.username || currentUser.value?.username,
         })
+        syncCurrentUserFromStorage()
         return
       }
 
@@ -815,6 +1082,11 @@ export default {
 
       if (eventType === 'message') {
         upsertMessage(data)
+        return
+      }
+
+      if (eventType === 'message_sent') {
+        applyMessageSent(data)
         return
       }
 
@@ -877,7 +1149,18 @@ export default {
         receiver: activeConversation.value,
       }, currentUserId.value)
 
+      console.log('send message input', JSON.parse(JSON.stringify({
+        peerId,
+        content,
+        clientTempId,
+        activePeerId: activePeerId.value,
+        currentUserId: currentUserId.value,
+      })))
+      console.log('optimistic message', JSON.parse(JSON.stringify(optimisticMessage)))
+
       upsertPendingMessage(peerId, optimisticMessage)
+      console.log('pending after send', peerId, JSON.parse(JSON.stringify(pendingMessagesByPeer.value[String(peerId)] || [])))
+      console.log('confirmed after send', peerId, JSON.parse(JSON.stringify(messagesByPeer.value[String(peerId)] || [])))
       const currentState = conversationState.value[String(peerId)] || {}
       conversationState.value = {
         ...conversationState.value,
@@ -888,14 +1171,24 @@ export default {
           unreadCount: Number(currentState.unreadCount || 0),
         },
       }
+      syncContactConversationMeta(peerId, {
+        latestTime: optimisticMessage.createdAt,
+        latestPreview: optimisticMessage.content,
+        unreadCount: Number(currentState.unreadCount || 0),
+      })
       draftMessage.value = ''
       isSending.value = true
+
+      nextTick(() => {
+        console.log('active after send render', peerId, JSON.parse(JSON.stringify(activeMessages.value || [])))
+      })
 
       const sent = wsService.sendMessage({
         to_user: peerId,
         content,
         client_temp_id: clientTempId,
       })
+      console.log('ws send result', JSON.parse(JSON.stringify({ peerId, clientTempId, sent })))
 
       if (!sent) {
         const key = String(peerId)
@@ -936,12 +1229,15 @@ export default {
       if (message.status === 'failed') return '发送失败'
       if (message.isRead || message.status === 'read') return '已读'
       if (message.status === 'delivered') return '已送达'
+      if (message.status === 'pending') return '已发送'
       if (message.status === 'sending') return '发送中'
       return '已发送'
     }
 
     onMounted(async () => {
       readLocalUser()
+      syncCurrentUserFromStorage()
+      loadChatListFromLocal()
       await refreshContacts()
       await refreshUnreadState()
       connectWebsocket()
@@ -969,7 +1265,10 @@ export default {
       isConversationLoading,
       connectionStatusText,
       connectionStatusClass,
+      currentUser,
+      newChatDialogVisible,
       contactList,
+      selectableUsers,
       activePeerId,
       activeConversation,
       activeMessages,
@@ -978,6 +1277,7 @@ export default {
       hasAvatar,
       getConversationMeta,
       startNewChat,
+      chooseNewChatUser,
       selectConversation,
       refreshConversation,
       sendCurrentMessage,
@@ -996,8 +1296,8 @@ export default {
   height: 100%;
   min-height: 0;
   background:
-    radial-gradient(circle at top left, rgba(132, 198, 255, 0.18), transparent 30%),
-    linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(240, 246, 252, 0.98));
+    radial-gradient(circle at top left, rgba(160, 207, 255, 0.18), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #f2f6fb 100%);
 }
 
 .chat-sidebar {
@@ -1007,7 +1307,7 @@ export default {
   flex-direction: column;
   padding: 22px 18px;
   border-right: 1px solid rgba(212, 223, 235, 0.9);
-  background: rgba(250, 253, 255, 0.88);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(242, 247, 252, 0.96));
   backdrop-filter: blur(10px);
 }
 
@@ -1078,6 +1378,8 @@ export default {
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(138, 153, 168, 0.45) transparent;
 }
 
 .contact-item {
@@ -1170,6 +1472,73 @@ export default {
   white-space: nowrap;
 }
 
+.new-chat-dialog {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.new-chat-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(219, 229, 238, 0.86);
+  transition: background-color 0.18s ease;
+}
+
+.new-chat-user:hover {
+  background: rgba(247, 251, 255, 0.96);
+}
+
+.new-chat-user + .new-chat-user {
+  margin-top: 10px;
+}
+
+.new-chat-user-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.new-chat-user-main {
+  min-width: 0;
+}
+
+.new-chat-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2b4157;
+}
+
+.new-chat-user-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #7f93a6;
+}
+
+.new-chat-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: #7f93a6;
+}
+
+:deep(.new-chat-dialog-wrap .el-dialog) {
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+:deep(.new-chat-dialog-wrap .el-dialog__body) {
+  display: flex;
+  justify-content: center;
+  padding-top: 14px;
+  padding-bottom: 18px;
+}
+
 .contact-badge {
   min-width: 22px;
   height: 22px;
@@ -1193,7 +1562,7 @@ export default {
 .chat-header {
   padding: 24px 28px 20px;
   border-bottom: 1px solid rgba(214, 224, 235, 0.9);
-  background: rgba(255, 255, 255, 0.6);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 253, 0.92));
 }
 
 .chat-user-summary {
@@ -1213,58 +1582,203 @@ export default {
   overflow-y: auto;
   padding: 28px;
   background:
-    radial-gradient(circle at center, rgba(236, 244, 252, 0.65), transparent 55%),
+    radial-gradient(circle at center top, rgba(223, 238, 252, 0.38), transparent 45%),
     linear-gradient(180deg, rgba(247, 250, 253, 0.96), rgba(241, 246, 251, 0.96));
+  scrollbar-width: thin;
+  scrollbar-color: rgba(138, 153, 168, 0.5) transparent;
+}
+
+.contact-list::-webkit-scrollbar,
+.message-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.contact-list::-webkit-scrollbar-button,
+.message-list::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.contact-list::-webkit-scrollbar-button:single-button,
+.message-list::-webkit-scrollbar-button:single-button,
+.contact-list::-webkit-scrollbar-button:double-button,
+.message-list::-webkit-scrollbar-button:double-button,
+.contact-list::-webkit-scrollbar-button:start,
+.message-list::-webkit-scrollbar-button:start,
+.contact-list::-webkit-scrollbar-button:end,
+.message-list::-webkit-scrollbar-button:end,
+.contact-list::-webkit-scrollbar-button:vertical:start:decrement,
+.message-list::-webkit-scrollbar-button:vertical:start:decrement,
+.contact-list::-webkit-scrollbar-button:vertical:end:increment,
+.message-list::-webkit-scrollbar-button:vertical:end:increment {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.contact-list::-webkit-scrollbar-track,
+.message-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.contact-list::-webkit-scrollbar-thumb,
+.message-list::-webkit-scrollbar-thumb {
+  background: rgba(138, 153, 168, 0.38);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.contact-list::-webkit-scrollbar-thumb:hover,
+.message-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(110, 125, 141, 0.55);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .message-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .message-row.mine {
   justify-content: flex-end;
 }
 
+.message-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(74%, 560px);
+  margin: 0 5px;
+}
+
+.message-row.mine .message-main {
+  align-items: flex-end;
+}
+
 .message-bubble {
-  max-width: min(70%, 560px);
-  padding: 14px 16px;
-  border-radius: 18px 18px 18px 6px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  min-height: 36px;
+  padding: 8px 12px;
   background: #ffffff;
-  box-shadow: 0 12px 28px rgba(110, 141, 171, 0.08);
+  border: 0;
+  box-shadow: none;
+}
+
+.message-row:not(.mine) .message-bubble {
+  border-radius: 6px 6px 6px 6px;
+}
+
+.message-row:not(.mine) .message-bubble::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  transform: rotate(45deg);
 }
 
 .message-row.mine .message-bubble {
-  border-radius: 18px 18px 6px 18px;
-  background: linear-gradient(135deg, #7fb8ff, #63a5ff);
-  color: #fff;
+  border-radius: 6px 6px 6px 6px;
+  background: #95ec69;
+  color: #22303a;
+}
+
+.message-row.mine .message-bubble::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  background: #95ec69;
+  transform: rotate(45deg);
 }
 
 .message-content {
-  line-height: 1.65;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
+  font-size: 14px;
 }
 
 .message-meta {
-  margin-top: 8px;
-  display: flex;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #8a99a8;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.message-meta.outside {
+  padding: 0 2px;
+}
+
+.message-row.mine .message-meta {
   justify-content: flex-end;
-  gap: 10px;
-  font-size: 12px;
-  opacity: 0.72;
+}
+
+.message-avatar {
+  margin-top: 0;
 }
 
 .input-panel {
+  position: relative;
   padding: 18px 28px 24px;
   border-top: 1px solid rgba(214, 224, 235, 0.9);
-  background: rgba(250, 252, 255, 0.92);
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.96), rgba(243, 248, 252, 0.94));
 }
 
 .input-actions {
-  margin-top: 14px;
+  position: absolute;
+  right: 42px;
+  bottom: 38px;
+  margin-top: 0;
+  z-index: 2;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.input-actions .el-button {
+  pointer-events: auto;
+  border-radius: 999px;
+  padding-inline: 18px;
+  box-shadow: 0 8px 20px rgba(86, 149, 226, 0.22);
+}
+
+.input-hint {
+  display: none;
+}
+
+.input-panel :deep(.el-textarea__inner) {
+  padding: 14px 108px 14px 14px;
+  border-radius: 18px;
+  min-height: 112px !important;
+  line-height: 1.55;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(206, 220, 232, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.input-panel :deep(.el-textarea__inner:focus) {
+  box-shadow: 0 0 0 1px rgba(96, 160, 236, 0.32);
 }
 
 .message-empty,

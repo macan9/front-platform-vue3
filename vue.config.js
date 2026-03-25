@@ -3,6 +3,9 @@ const { defineConfig } = require('@vue/cli-service')
 const path = require('path');
 module.exports = defineConfig({
   transpileDependencies: true,
+  // Disable worker-based parallel compilation on Windows to avoid
+  // thread-loader child_process spawn failures in some Node environments.
+  parallel: false,
    devServer: {
     port: 8010,
     hot: true,
