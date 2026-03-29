@@ -704,7 +704,7 @@ export default {
       const uniqueIds = [...new Set((Array.isArray(messageIds) ? messageIds : []).filter(Boolean))]
       if (!uniqueIds.length) return
 
-      await markMessagesReadApi({ message_ids: uniqueIds })
+      await markMessagesReadApi({ message_id: uniqueIds })
       uniqueIds.forEach((id) => {
         wsService.sendReadAck(id)
       })
