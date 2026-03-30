@@ -52,7 +52,7 @@ const textareaChange = (val) => {
 }
 
 
-const markdownString = '# threejs-demo\n### Compiles and hot-reloads for development \n```npm run serve```\n## 配置项记录\n### 默认运行端口\n ```js\nmodule.exports = {\n  devServer: {\n   port: 8010,\n  }\n } \n```';
+const markdownString = '# front-platform-vue3\n### Compiles and hot-reloads for development \n```npm run serve```\n## 配置项记录\n### 默认运行端口\n ```js\nmodule.exports = {\n  devServer: {\n   port: 8010,\n  }\n } \n```';
 const mds = ref(markdownString)
 const changeMdString = () => {
     markdownHTML.value = renderMarkdown(mds.value);
