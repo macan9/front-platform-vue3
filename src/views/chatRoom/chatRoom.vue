@@ -1,6 +1,19 @@
 <template>
   <div class="chat-room-page home-view-page">
-    <div class="chat-sidebar">
+    <button
+      v-if="isMobileViewport && mobileSidebarOpen"
+      class="chat-sidebar-mask"
+      type="button"
+      aria-label="关闭联系人面板"
+      @click="closeMobileSidebar"
+    ></button>
+
+    <div
+      class="chat-sidebar"
+      :class="{ 'drawer-open': mobileSidebarOpen }"
+      @touchstart.passive="recordTouchStart"
+      @touchend.passive="handleSidebarTouchEnd"
+    >
       <div class="sidebar-header">
         <div>
           <div class="sidebar-title">消息中心</div>
@@ -85,7 +98,29 @@
       </div>
     </el-dialog>
 
-    <div class="chat-main">
+    <div
+      class="chat-main"
+      @touchstart.passive="recordTouchStart"
+      @touchend.passive="handleMainTouchEnd"
+    >
+      <div v-if="isMobileViewport" class="mobile-chat-toolbar">
+        <button
+          class="sidebar-toggle"
+          type="button"
+          :aria-expanded="mobileSidebarOpen ? 'true' : 'false'"
+          aria-label="打开联系人列表"
+          @click="toggleMobileSidebar"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="mobile-chat-toolbar__text">
+          <div class="mobile-chat-toolbar__title">{{ activeConversation ? getDisplayName(activeConversation) : '消息中心' }}</div>
+          <div class="mobile-chat-toolbar__subtitle">联系人列表可侧滑打开</div>
+        </div>
+      </div>
+
       <template v-if="activeConversation">
         <div class="chat-header">
           <div class="chat-user-summary">
@@ -390,7 +425,68 @@ export default {
     const activePeerId = ref('')
     const contactDetailLoading = new Set()
     const conversationLoadingPeerId = ref('')
+    const isMobileViewport = ref(false)
+    const mobileSidebarOpen = ref(false)
+    const touchStartX = ref(0)
+    const touchStartY = ref(0)
     let unsubscribeWs = null
+    const MOBILE_BREAKPOINT = 960
+
+    const syncViewportState = () => {
+      const nextIsMobile = window.innerWidth <= MOBILE_BREAKPOINT
+      isMobileViewport.value = nextIsMobile
+      if (!nextIsMobile) {
+        mobileSidebarOpen.value = false
+      }
+    }
+
+    const openMobileSidebar = () => {
+      if (!isMobileViewport.value) return
+      mobileSidebarOpen.value = true
+    }
+
+    const closeMobileSidebar = () => {
+      mobileSidebarOpen.value = false
+    }
+
+    const toggleMobileSidebar = () => {
+      if (!isMobileViewport.value) return
+      mobileSidebarOpen.value = !mobileSidebarOpen.value
+    }
+
+    const recordTouchStart = (event) => {
+      const touch = event?.changedTouches?.[0] || event?.touches?.[0]
+      if (!touch) return
+      touchStartX.value = Number(touch.clientX || 0)
+      touchStartY.value = Number(touch.clientY || 0)
+    }
+
+    const shouldHandleSwipe = (deltaX, deltaY) => {
+      return Math.abs(deltaX) > 70 && Math.abs(deltaY) < 60
+    }
+
+    const handleMainTouchEnd = (event) => {
+      if (!isMobileViewport.value || mobileSidebarOpen.value) return
+      const touch = event?.changedTouches?.[0]
+      if (!touch) return
+      const deltaX = Number(touch.clientX || 0) - touchStartX.value
+      const deltaY = Number(touch.clientY || 0) - touchStartY.value
+      const nearLeftEdge = touchStartX.value <= 36
+      if (nearLeftEdge && deltaX > 0 && shouldHandleSwipe(deltaX, deltaY)) {
+        openMobileSidebar()
+      }
+    }
+
+    const handleSidebarTouchEnd = (event) => {
+      if (!isMobileViewport.value || !mobileSidebarOpen.value) return
+      const touch = event?.changedTouches?.[0]
+      if (!touch) return
+      const deltaX = Number(touch.clientX || 0) - touchStartX.value
+      const deltaY = Number(touch.clientY || 0) - touchStartY.value
+      if (deltaX < 0 && shouldHandleSwipe(deltaX, deltaY)) {
+        closeMobileSidebar()
+      }
+    }
 
     const currentUserId = computed(() => getUserId(currentUser.value?.id))
     const chatListStorageKey = computed(() => `chatRoomChatList:${currentUserId.value || 'guest'}`)
@@ -867,6 +963,9 @@ export default {
     const selectConversation = async (contact) => {
       const nextPeerId = String(contact?.id || '')
       if (!nextPeerId) return
+      if (isMobileViewport.value) {
+        closeMobileSidebar()
+      }
       if (nextPeerId === String(activePeerId.value)) {
         return
       }
@@ -1235,6 +1334,8 @@ export default {
     }
 
     onMounted(async () => {
+      syncViewportState()
+      window.addEventListener('resize', syncViewportState)
       readLocalUser()
       syncCurrentUserFromStorage()
       loadChatListFromLocal()
@@ -1252,6 +1353,7 @@ export default {
     })
 
     onBeforeUnmount(() => {
+      window.removeEventListener('resize', syncViewportState)
       if (typeof unsubscribeWs === 'function') {
         unsubscribeWs()
       }
@@ -1263,6 +1365,8 @@ export default {
       draftMessage,
       isSending,
       isConversationLoading,
+      isMobileViewport,
+      mobileSidebarOpen,
       connectionStatusText,
       connectionStatusClass,
       currentUser,
@@ -1278,6 +1382,11 @@ export default {
       getConversationMeta,
       startNewChat,
       chooseNewChatUser,
+      toggleMobileSidebar,
+      closeMobileSidebar,
+      recordTouchStart,
+      handleMainTouchEnd,
+      handleSidebarTouchEnd,
       selectConversation,
       refreshConversation,
       sendCurrentMessage,
@@ -1292,6 +1401,7 @@ export default {
 
 <style lang="scss" scoped>
 .chat-room-page {
+  position: relative;
   display: flex;
   height: 100%;
   min-height: 0;
@@ -1301,6 +1411,8 @@ export default {
 }
 
 .chat-sidebar {
+  position: relative;
+  z-index: 4;
   width: 340px;
   flex-shrink: 0;
   display: flex;
@@ -1309,6 +1421,16 @@ export default {
   border-right: 1px solid rgba(212, 223, 235, 0.9);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(242, 247, 252, 0.96));
   backdrop-filter: blur(10px);
+}
+
+.chat-sidebar-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: 0;
+  padding: 0;
+  background: rgba(31, 47, 67, 0.24);
+  backdrop-filter: blur(2px);
 }
 
 .sidebar-header,
@@ -1557,6 +1679,52 @@ export default {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  width: 100%;
+}
+
+.mobile-chat-toolbar {
+  display: none;
+}
+
+.sidebar-toggle {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(199, 213, 228, 0.92);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 20px rgba(108, 137, 166, 0.12);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.sidebar-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #59708a;
+}
+
+.mobile-chat-toolbar__text {
+  min-width: 0;
+}
+
+.mobile-chat-toolbar__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #24384d;
+}
+
+.mobile-chat-toolbar__subtitle {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #8195a9;
 }
 
 .chat-header {
@@ -1793,21 +1961,79 @@ export default {
 
 @media (max-width: 960px) {
   .chat-room-page {
-    flex-direction: column;
+    overflow: hidden;
   }
 
   .chat-sidebar {
-    width: 100%;
-    border-right: 0;
-    border-bottom: 1px solid rgba(212, 223, 235, 0.9);
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(82vw, 320px);
+    max-width: 320px;
+    border-right: 1px solid rgba(212, 223, 235, 0.9);
+    border-bottom: 0;
+    box-shadow: 20px 0 40px rgba(57, 84, 113, 0.16);
+    transform: translateX(-100%);
+    transition: transform 0.24s ease;
   }
 
-  .contact-list {
-    max-height: 260px;
+  .chat-sidebar.drawer-open {
+    transform: translateX(0);
+  }
+
+  .mobile-chat-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid rgba(214, 224, 235, 0.9);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 249, 253, 0.94));
+  }
+
+  .chat-main {
+    width: 100%;
+  }
+
+  .chat-header {
+    padding: 16px;
+  }
+
+  .chat-user-summary {
+    gap: 10px;
+  }
+
+  .chat-title {
+    font-size: 18px;
+  }
+
+  .message-list {
+    padding: 18px 14px;
+  }
+
+  .message-main {
+    max-width: calc(100% - 56px);
+  }
+
+  .input-panel {
+    padding: 14px 14px 18px;
+  }
+
+  .input-actions {
+    right: 26px;
+    bottom: 28px;
   }
 
   .message-bubble {
-    max-width: 85%;
+    max-width: 100%;
+  }
+
+  .input-panel :deep(.el-textarea__inner) {
+    min-height: 96px !important;
+  }
+
+  :deep(.new-chat-dialog-wrap .el-dialog) {
+    width: min(92vw, 420px) !important;
   }
 }
 </style>
