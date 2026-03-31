@@ -6,11 +6,11 @@ const RECONNECT_DELAY = 3000
 
 const buildWsBaseUrl = () => {
   if (typeof window === 'undefined') {
-    return 'ws://139.196.158.225:3000/ws'
+    return ''
   }
 
   const wsServiceHost = String(globals_config?.ws_service || '').trim()
-  if (!wsServiceHost) return 'ws://139.196.158.225:3000/ws'
+  if (!wsServiceHost) return ''
 
   const wsBase = wsServiceHost
     .replace(/^http:/i, 'ws:')
@@ -72,7 +72,14 @@ class WsService {
       this.socket = null
     }
 
-    const url = `${buildWsBaseUrl()}?token=${encodeURIComponent(nextToken)}`
+    const wsBaseUrl = buildWsBaseUrl()
+    if (!wsBaseUrl) {
+      this.connectingToken = ''
+      this.emit({ type: 'socket_error', data: { message: 'WebSocket service url is not configured.' } })
+      return
+    }
+
+    const url = `${wsBaseUrl}?token=${encodeURIComponent(nextToken)}`
     this.connectingToken = nextToken
     this.socket = new WebSocket(url)
 
