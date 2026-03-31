@@ -9,6 +9,9 @@
 
     <div class="dont-hit-remind">
       <div class="hud">
+        <button class="theme-switch-btn" type="button" @click="toggleTheme">
+          主题：{{ currentThemeLabel }}
+        </button>
         <h1 class="reaction">速度：{{ reactionSpeedText }}</h1>
         <h1 class="density">密度：{{ spikeDensityText }}</h1>
         <h1 class="score">得分：{{ score }}</h1>
@@ -85,7 +88,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
 import { isApiSuccess } from '@/common/requests/requests.js'
@@ -109,6 +112,7 @@ const showLeaderboard = ref(false)
 const isLoading = ref(true)
 const reactionSpeed = ref(0)
 const spikeDensity = ref(0)
+const currentTheme = ref('neon')
 const isMobile = computed(() => store.state.isMobile)
 
 const recordBtnText = computed(() => {
@@ -119,8 +123,10 @@ const recordBtnText = computed(() => {
 
 const reactionSpeedText = computed(() => `${reactionSpeed.value.toFixed(2)}x`)
 const spikeDensityText = computed(() => spikeDensity.value.toFixed(2))
+const currentThemeLabel = computed(() => (currentTheme.value === 'neon' ? 'Neon' : 'Industrial'))
 
 let gameRuntime = null
+let layoutObserver = null
 
 function requestStart() {
   gameRuntime?.requestStart()
@@ -144,6 +150,11 @@ function handleJumpPress() {
 
 function handleJumpRelease() {
   gameRuntime?.jumpRelease()
+}
+
+function toggleTheme() {
+  const nextTheme = currentTheme.value === 'industrial' ? 'neon' : 'industrial'
+  currentTheme.value = gameRuntime?.setTheme?.(nextTheme) || nextTheme
 }
 
 const safeParseJson = (str) => {
@@ -195,7 +206,9 @@ const recordScore = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
+
   gameRuntime = createDontHitTheSpikeRuntime({
     mountEl,
     onReady: () => {
@@ -216,6 +229,19 @@ onMounted(() => {
     recordError,
     lastScoreTime,
   })
+
+  requestAnimationFrame(() => {
+    gameRuntime?.resize?.()
+    currentTheme.value = gameRuntime?.getTheme?.() || 'neon'
+  })
+
+  const targetEl = mountEl.value?.parentElement || mountEl.value
+  if (targetEl && typeof ResizeObserver !== 'undefined') {
+    layoutObserver = new ResizeObserver(() => {
+      gameRuntime?.resize?.()
+    })
+    layoutObserver.observe(targetEl)
+  }
 })
 
 watch(
@@ -228,6 +254,8 @@ watch(
 )
 
 onUnmounted(() => {
+  layoutObserver?.disconnect?.()
+  layoutObserver = null
   gameRuntime?.destroy()
   gameRuntime = null
 })
@@ -237,6 +265,8 @@ onUnmounted(() => {
 .dont-hit-the-spikes {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   user-select: none;
@@ -293,6 +323,8 @@ onUnmounted(() => {
   .dont-hit-remind {
     position: absolute;
     inset: 0;
+    width: 100%;
+    height: 100%;
     z-index: 2;
 
     .hud {
@@ -337,6 +369,31 @@ onUnmounted(() => {
       position: absolute;
       top: 3.2rem;
       right: 1rem;
+    }
+
+    .theme-switch-btn {
+      position: absolute;
+      top: 1rem;
+      right: 50%;
+      transform: translateX(50%);
+      min-width: 132px;
+      padding: 0.55rem 0.9rem;
+      border: 1px solid rgba(252, 186, 3, 0.45);
+      border-radius: 999px;
+      background: rgba(0, 17, 39, 0.68);
+      color: #fcba03;
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
+      pointer-events: auto;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .theme-switch-btn:hover {
+      background: rgba(252, 186, 3, 0.14);
     }
 
     .modal {
@@ -468,7 +525,8 @@ onUnmounted(() => {
     }
 
     .reaction,
-    .score {
+    .score,
+    .theme-switch-btn {
       top: 0.8rem;
     }
 
@@ -479,6 +537,12 @@ onUnmounted(() => {
 
     .paused {
       top: 4.4rem;
+    }
+
+    .theme-switch-btn {
+      min-width: 110px;
+      padding: 0.48rem 0.75rem;
+      font-size: 0.84rem;
     }
   }
 }

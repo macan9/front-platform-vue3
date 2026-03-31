@@ -5,10 +5,10 @@ export const DONT_HIT_THE_SPIKE_CONFIG = Object.freeze({
   playerZ: 10,
   playerRadius: 0.65,
   basePanSpeed: 50,
-  speedAccelPerSecond: 1,
-  maxPanSpeed: 120,
+  speedAccelPerSecond: 0.5, // 速度每秒增加
+  maxPanSpeed: 100,
   baseSpikeDensity: 0.2,
-  densityAccelPerSecond: 0.1,
+  densityAccelPerSecond: 0.05, // 速度每批次增加
   maxSpikeDensity: 0.8,
   spikeRowsPerGeneration: 50,
   lowSpikeHeight: 5,
@@ -28,7 +28,11 @@ export const DONT_HIT_THE_SPIKE_CONFIG = Object.freeze({
 })
 
 export function createVerticalBounds(baseHeightScale, playerRadius) {
-  const minY = 2
+  // Floor/ceiling are BoxGeometry(30, 0.5, depth), so their visible surface sits
+  // 0.25 units away from the mesh center. Keep the ball center exactly one radius
+  // away from that surface so it visually touches instead of hovering.
+  const surfaceHalfThickness = 0.25
+  const minY = surfaceHalfThickness + playerRadius
   const maxY = 13 * baseHeightScale
   const ceilingY = 15 * baseHeightScale
 
@@ -37,7 +41,7 @@ export function createVerticalBounds(baseHeightScale, playerRadius) {
     maxY,
     ceilingY,
     lightY: 7.5 * baseHeightScale,
-    ceilingGroundY: ceilingY - playerRadius,
+    ceilingGroundY: ceilingY - surfaceHalfThickness - playerRadius,
   }
 }
 
