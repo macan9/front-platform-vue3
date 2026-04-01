@@ -90,7 +90,12 @@
         </button>
       </div>
 
-      <LeaderboardDialog :visible="showLeaderboard" @close="showLeaderboard = false" />
+      <LeaderboardDialog
+        :visible="showLeaderboard"
+        :game-code="1"
+        :limit="10"
+        @close="showLeaderboard = false"
+      />
     </div>
   </div>
 </template>
@@ -199,7 +204,7 @@ const recordScore = async () => {
 
   savingScore.value = true
   try {
-    const res = await gameScoreCreateReq({ score: scoreValue, scoreTime, userId })
+    const res = await gameScoreCreateReq({ gameCode: 1, score: scoreValue, scoreTime, userId })
     const ok = isApiSuccess(res)
     if (!ok) {
       const msg = res?.message || '记录失败'

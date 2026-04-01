@@ -34,19 +34,36 @@
 
 			<div class="hud">
 				<div class="hud-pill">方向键 / A D 控制左右</div>
-				<div class="hud-pill">连续踩平台向上冲分</div>
+				<div class="hud-pill">踩中平台持续向上冲刺</div>
 			</div>
 
 			<div v-if="showOverlay" class="game-overlay">
 				<div class="overlay-card">
 					<p class="overlay-eyebrow">{{ isGameOver ? '本局结束' : '准备起跳' }}</p>
 					<h2>{{ isGameOver ? `得分 ${score}` : '简易涂鸦跳跃' }}</h2>
-					<p>
-						{{ isGameOver ? '掉出画面了，再来一局。' : '起跳后会自动弹跳，落到平台上即可继续上升。' }}
+					<p class="overlay-text">
+						{{
+							isGameOver
+								? '掉出画面后会自动记录分数，排行榜仅展示当前游戏前十。'
+								: '起跳后会自动弹跳，落到平台上即可继续上升。'
+						}}
 					</p>
-					<button class="overlay-button" type="button" @click="restartGame">
-						{{ isGameOver ? '重新开始' : '开始游戏' }}
-					</button>
+					<p v-if="isGameOver" class="overlay-status" :class="{ 'is-error': recordError }">
+						{{ recordStatusText }}
+					</p>
+					<div class="overlay-actions">
+						<button class="overlay-button" type="button" @click="restartGame">
+							{{ isGameOver ? '重新开始' : '开始游戏' }}
+						</button>
+						<button
+							v-if="isGameOver"
+							class="overlay-button overlay-button--secondary"
+							type="button"
+							@click="showLeaderboard = true"
+						>
+							查看排行榜
+						</button>
+					</div>
 				</div>
 			</div>
 
@@ -72,6 +89,14 @@
 					向右
 				</button>
 			</div>
+
+			<LeaderboardDialog
+				:visible="showLeaderboard"
+				:game-code="2"
+				:limit="10"
+				variant="graffiti"
+				@close="showLeaderboard = false"
+			/>
 		</div>
 	</section>
 </template>
@@ -79,20 +104,14 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import { ElMessage } from 'element-plus'
+import { gameScoreCreateReq } from '@/apis/gameScoreApis.js'
+import { isApiSuccess } from '@/common/requests/requests.js'
 import FullscreenToggle from '@/components/FullscreenToggle.vue'
+import LeaderboardDialog from '@/views/three/components/LeaderboardDialog.vue'
+import { DailyTimeFormat } from '@/utils/utils.js'
 
-const canvasRef = ref(null)
-const store = useStore()
-const homeLayoutControls = inject('homeLayoutControls', null)
-const isMobile = computed(() => store.state.isMobile)
-const score = ref(0)
-const highScore = ref(0)
-const gameStarted = ref(false)
-const isGameOver = ref(false)
-const maxClimbDistance = ref(0)
-const pageFullscreen = ref(false)
-const pageMenuVisible = ref(true)
-
+const GAME_CODE = 2
 const STORAGE_KEY = 'graffiti-jump-high-score'
 const LAST_SCORE_STORAGE_KEY = 'graffiti-jump-last-score'
 const VIEW_WIDTH = 420
@@ -109,10 +128,26 @@ const CAMERA_TRIGGER_Y = 244
 const PLATFORM_GAP_MIN = 62
 const PLATFORM_GAP_MAX = 96
 const WALL_PADDING = 10
-
 const SHORT_PLATFORM_SCORE = 120
 const FAST_PLATFORM_SCORE = 200
 const FAST_SHORT_PLATFORM_SCORE = 350
+
+const canvasRef = ref(null)
+const store = useStore()
+const homeLayoutControls = inject('homeLayoutControls', null)
+const isMobile = computed(() => store.state.isMobile)
+const score = ref(0)
+const highScore = ref(0)
+const gameStarted = ref(false)
+const isGameOver = ref(false)
+const maxClimbDistance = ref(0)
+const pageFullscreen = ref(false)
+const pageMenuVisible = ref(true)
+const showLeaderboard = ref(false)
+const savingScore = ref(false)
+const scoreRecorded = ref(false)
+const lastScoreTime = ref('')
+const recordError = ref('')
 
 const moveLeft = ref(false)
 const moveRight = ref(false)
@@ -144,6 +179,13 @@ const platforms = []
 const stars = []
 
 const showOverlay = computed(() => !gameStarted.value || isGameOver.value)
+const recordStatusText = computed(() => {
+	if (!isGameOver.value) return ''
+	if (recordError.value) return recordError.value
+	if (savingScore.value) return '正在记录本局分数...'
+	if (scoreRecorded.value) return '分数已记录，已为你准备好排行榜前十。'
+	return '登录后可自动记录本局分数。'
+})
 
 watch(
 	() => pageFullscreen.value,
@@ -161,12 +203,37 @@ watch(
 	{ immediate: true }
 )
 
+watch(
+	() => isGameOver.value,
+	async (next, prev) => {
+		if (!next || prev) return
+		if (!score.value && !lastScoreTime.value) return
+		if (savingScore.value || scoreRecorded.value) return
+		await recordScore()
+	}
+)
+
 function randomBetween(min, max) {
 	return Math.random() * (max - min) + min
 }
 
 function clamp(value, min, max) {
 	return Math.min(max, Math.max(min, value))
+}
+
+function safeParseJson(str) {
+	const value = String(str || '').trim()
+	if (!value) return null
+	try {
+		return JSON.parse(value)
+	} catch {
+		return null
+	}
+}
+
+function getCurrentUserId() {
+	const userInfoObj = safeParseJson(localStorage.getItem('userInfo')) || {}
+	return String(userInfoObj?.user?.id || '')
 }
 
 function loadHighScore() {
@@ -328,6 +395,11 @@ function restartGame() {
 	isGameOver.value = false
 	moveLeft.value = false
 	moveRight.value = false
+	showLeaderboard.value = false
+	savingScore.value = false
+	scoreRecorded.value = false
+	recordError.value = ''
+	lastScoreTime.value = ''
 	resetPlayer()
 	resetPlatforms()
 	seedStars()
@@ -364,6 +436,43 @@ function handleKeyUp(event) {
 function handleCanvasClick() {
 	if (showOverlay.value) {
 		restartGame()
+	}
+}
+
+async function recordScore() {
+	recordError.value = ''
+
+	const userId = getCurrentUserId()
+	if (!userId) {
+		recordError.value = '请先登录后再自动记录分数'
+		return
+	}
+
+	const scoreValue = Number(score.value || 0)
+	const scoreTime = lastScoreTime.value || DailyTimeFormat(new Date())
+
+	savingScore.value = true
+	try {
+		const res = await gameScoreCreateReq({
+			gameCode: GAME_CODE,
+			score: scoreValue,
+			scoreTime,
+			userId,
+		})
+		if (!isApiSuccess(res)) {
+			recordError.value = String(res?.message || '分数记录失败')
+			ElMessage({ message: recordError.value, type: 'error' })
+			return
+		}
+
+		scoreRecorded.value = true
+		showLeaderboard.value = true
+		ElMessage({ message: '分数已记录', type: 'success' })
+	} catch (error) {
+		recordError.value = String(error?.message || '分数记录失败')
+		ElMessage({ message: recordError.value, type: 'error' })
+	} finally {
+		savingScore.value = false
 	}
 }
 
@@ -466,6 +575,7 @@ function updatePlayer(deltaFactor) {
 
 	if (player.y > VIEW_HEIGHT + 90) {
 		saveLastScore(score.value)
+		lastScoreTime.value = DailyTimeFormat(new Date())
 		isGameOver.value = true
 		gameStarted.value = false
 	}
@@ -827,7 +937,7 @@ onBeforeUnmount(() => {
 }
 
 .hud {
-	width: 150px;
+	width: 180px;
 	position: absolute;
 	top: 94px;
 	left: 22px;
@@ -859,7 +969,7 @@ onBeforeUnmount(() => {
 }
 
 .overlay-card {
-	width: min(100%, 340px);
+	width: min(100%, 380px);
 	padding: 28px 26px;
 	border: 3px solid rgba(49, 68, 40, 0.12);
 	border-radius: 26px;
@@ -873,11 +983,6 @@ onBeforeUnmount(() => {
 		font-size: 30px;
 		line-height: 1.1;
 	}
-
-	p {
-		margin: 0;
-		line-height: 1.7;
-	}
 }
 
 .overlay-eyebrow {
@@ -888,8 +993,33 @@ onBeforeUnmount(() => {
 	color: rgba(49, 68, 40, 0.66);
 }
 
-.overlay-button {
+.overlay-text {
+	margin: 0;
+	line-height: 1.7;
+}
+
+.overlay-status {
+	margin: 14px 0 0;
+	padding: 10px 12px;
+	border-radius: 14px;
+	background: rgba(255, 252, 238, 0.88);
+	color: rgba(49, 68, 40, 0.78);
+	line-height: 1.6;
+}
+
+.overlay-status.is-error {
+	background: rgba(255, 224, 224, 0.88);
+	color: #a04747;
+}
+
+.overlay-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 	margin-top: 18px;
+}
+
+.overlay-button {
 	padding: 13px 18px;
 	min-width: 144px;
 	border-radius: 999px;
@@ -897,6 +1027,12 @@ onBeforeUnmount(() => {
 	color: #44260f;
 	font-weight: 800;
 	box-shadow: 0 12px 24px rgba(242, 139, 55, 0.22);
+}
+
+.overlay-button--secondary {
+	background: rgba(255, 252, 238, 0.88);
+	color: #314428;
+	box-shadow: 0 12px 26px rgba(74, 98, 55, 0.14);
 }
 
 .touch-controls {
@@ -953,7 +1089,7 @@ onBeforeUnmount(() => {
 		top: 88px;
 		left: 16px;
 		right: 16px;
+		width: auto;
 	}
 }
-
 </style>
