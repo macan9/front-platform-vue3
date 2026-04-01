@@ -1,7 +1,7 @@
 <template>
 	<el-dialog
 		:model-value="modelValue"
-		title="Draw History"
+		title="中奖记录"
 		width="560px"
 		append-to-body
 		class="gashapon-dialog"
@@ -10,22 +10,22 @@
 		<div class="history-dialog">
 			<div v-if="records.length" class="history-summary">
 				<div class="summary-card">
-					<span class="summary-label">Records</span>
+					<span class="summary-label">记录数</span>
 					<strong>{{ records.length }}</strong>
 				</div>
 				<div class="summary-card">
-					<span class="summary-label">Latest Rarity</span>
+					<span class="summary-label">最近稀有度</span>
 					<strong>{{ records[0].rarity }}</strong>
 				</div>
 				<div class="summary-card accent">
-					<span class="summary-label">Latest Theme</span>
+					<span class="summary-label">最近主题</span>
 					<strong>{{ records[0].theme }}</strong>
 				</div>
 			</div>
 
 			<div class="dialog-actions">
 				<button type="button" class="refresh-btn" :disabled="loading" @click="$emit('refresh')">
-					{{ loading ? 'Refreshing...' : 'Refresh' }}
+					{{ loading ? '刷新中...' : '刷新' }}
 				</button>
 			</div>
 
@@ -41,19 +41,19 @@
 						<div class="history-main">
 							<div>
 								<p class="history-name">{{ entry.name }}</p>
-								<p class="history-meta">{{ entry.rarity }} · No. {{ String(entry.displayId || entry.id || 0).padStart(2, '0') }}</p>
+								<p class="history-meta">{{ entry.rarity }} · 编号 {{ String(entry.displayId || entry.id || 0).padStart(2, '0') }}</p>
 							</div>
 							<span class="history-time">{{ formatTime(entry.droppedAt) }}</span>
 						</div>
 						<p class="history-desc">{{ entry.description }}</p>
 						<div class="history-tags">
-							<span>Theme {{ entry.theme }}</span>
-							<span>Color {{ entry.color }}</span>
+							<span>主题 {{ entry.theme }}</span>
+							<span>颜色 {{ entry.color }}</span>
 						</div>
 					</div>
 				</div>
 			</div>
-			<p v-else class="history-empty">No draw history yet. Spin one to get started.</p>
+			<p v-else class="history-empty">暂无中奖记录</p>
 		</div>
 	</el-dialog>
 </template>
@@ -112,7 +112,6 @@ defineEmits(['update:modelValue', 'refresh'])
 .summary-label {
 	font-size: 11px;
 	letter-spacing: 0.08em;
-	text-transform: uppercase;
 	color: rgba(103, 48, 16, 0.62);
 }
 

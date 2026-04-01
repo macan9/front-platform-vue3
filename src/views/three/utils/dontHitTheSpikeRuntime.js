@@ -436,19 +436,11 @@ function createSceneRuntime({ mountEl, player, playerRadius, ceilingY, lightY, l
     const halfHorizontalView = halfVerticalView * camera.aspect;
     const focusMinX = levelAabb.minX + halfHorizontalView + cameraBoundsPadding;
     const focusMaxX = levelAabb.maxX - halfHorizontalView - cameraBoundsPadding;
-    const focusMinY = levelAabb.minY + halfVerticalView + cameraBoundsPadding;
-    const focusMaxY = levelAabb.maxY - halfVerticalView - cameraBoundsPadding;
 
     if (focusMinX < focusMaxX) {
       tmpDesiredFocus.x = THREE.MathUtils.clamp(tmpDesiredFocus.x, focusMinX, focusMaxX);
     } else {
       tmpDesiredFocus.x = (levelAabb.minX + levelAabb.maxX) * 0.5;
-    }
-
-    if (focusMinY < focusMaxY) {
-      tmpDesiredFocus.y = THREE.MathUtils.clamp(tmpDesiredFocus.y, focusMinY, focusMaxY);
-    } else {
-      tmpDesiredFocus.y = (levelAabb.minY + levelAabb.maxY) * 0.5;
     }
 
     cameraFocus.x = THREE.MathUtils.damp(cameraFocus.x, tmpDesiredFocus.x, cameraFollowDamping, dt);

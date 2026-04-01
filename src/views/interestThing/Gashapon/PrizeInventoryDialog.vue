@@ -1,7 +1,7 @@
 <template>
 	<el-dialog
 		:model-value="modelValue"
-		title="My Prizes"
+		title="我的奖品"
 		width="620px"
 		append-to-body
 		class="gashapon-dialog"
@@ -10,11 +10,11 @@
 		<div class="inventory-dialog">
 			<div class="inventory-summary">
 				<div class="summary-card">
-					<span class="summary-label">Owned</span>
+					<span class="summary-label">持有数量</span>
 					<strong>{{ total }}</strong>
 				</div>
 				<div class="summary-card accent">
-					<span class="summary-label">Sellable</span>
+					<span class="summary-label">可出售积分</span>
 					<strong>{{ sellablePoints }}</strong>
 				</div>
 			</div>
@@ -29,8 +29,8 @@
 					<span class="inventory-icon">{{ item.icon }}</span>
 					<div class="inventory-content">
 						<p class="inventory-name">{{ item.name }}</p>
-						<p class="inventory-meta">{{ item.rarity }} · No. {{ String(item.displayId || item.id || 0).padStart(2, '0') }}</p>
-						<p class="inventory-meta">Sell for {{ item.sellPoints }} pts</p>
+						<p class="inventory-meta">{{ item.rarity }} · 编号 {{ String(item.displayId || item.id || 0).padStart(2, '0') }}</p>
+						<p class="inventory-meta">出售可得 {{ item.sellPoints }} 积分</p>
 					</div>
 					<button
 						type="button"
@@ -38,14 +38,13 @@
 						:disabled="sellingInventoryId === item.inventoryId"
 						@click="$emit('sell', item)"
 					>
-						{{ sellingInventoryId === item.inventoryId ? 'Selling...' : 'Sell' }}
+						{{ sellingInventoryId === item.inventoryId ? '出售中...' : '出售' }}
 					</button>
 				</div>
 			</div>
 			<div v-else class="inventory-empty">
 				<div class="empty-icon">?</div>
-				<h3>No Prizes Yet</h3>
-				<p>Your synced inventory will appear here after a draw.</p>
+				<h3>暂无奖品</h3>
 			</div>
 		</div>
 	</el-dialog>
@@ -104,7 +103,6 @@ const sellablePoints = computed(() => props.prizes.reduce((sum, item) => sum + N
 .summary-label {
 	font-size: 12px;
 	letter-spacing: 0.08em;
-	text-transform: uppercase;
 	color: rgba(103, 48, 16, 0.62);
 }
 

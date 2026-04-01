@@ -6,7 +6,6 @@
 				<FullscreenToggle
 					v-model:fullscreen="pageFullscreen"
 					v-model:menu-visible="pageMenuVisible"
-					fixed
 				/>
 			</div>
 		</div>

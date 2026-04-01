@@ -4,7 +4,6 @@
       <FullscreenToggle
         v-model:fullscreen="pageFullscreen"
         v-model:menu-visible="pageMenuVisible"
-        fixed
       />
     </div>
 
@@ -311,8 +310,8 @@ onUnmounted(() => {
   -webkit-touch-callout: none;
 
   .dont-hit-fullscreen-toggle {
-    position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 5.4rem);
+    position: absolute;
+    top: 16px;
     right: 16px;
     z-index: 50;
   }
@@ -558,7 +557,7 @@ onUnmounted(() => {
 
 @media (min-width: 769px) {
   .dont-hit-the-spikes .dont-hit-fullscreen-toggle {
-    top: 5.4rem;
+    top: 16px;
     right: 20px;
   }
 
@@ -596,7 +595,7 @@ onUnmounted(() => {
   }
 
   .dont-hit-the-spikes .dont-hit-fullscreen-toggle {
-    top: calc(env(safe-area-inset-top, 0px) + 4.8rem);
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
     right: 12px;
   }
 }

@@ -1,7 +1,7 @@
 <template>
 	<el-dialog
 		:model-value="modelValue"
-		title="Trade History"
+		title="交易记录"
 		width="560px"
 		append-to-body
 		class="gashapon-dialog"
@@ -10,22 +10,22 @@
 		<div class="trade-dialog">
 			<div class="trade-summary">
 				<div class="summary-card">
-					<span class="summary-label">Records</span>
+					<span class="summary-label">记录数</span>
 					<strong>{{ summary.total }}</strong>
 				</div>
 				<div class="summary-card">
-					<span class="summary-label">Latest Type</span>
+					<span class="summary-label">最近类型</span>
 					<strong>{{ summary.latestType }}</strong>
 				</div>
 				<div class="summary-card accent">
-					<span class="summary-label">Latest Status</span>
+					<span class="summary-label">最近状态</span>
 					<strong>{{ summary.latestStatus }}</strong>
 				</div>
 			</div>
 
 			<div class="dialog-actions">
 				<button type="button" class="refresh-btn" :disabled="loading" @click="$emit('refresh')">
-					{{ loading ? 'Refreshing...' : 'Refresh' }}
+					{{ loading ? '刷新中...' : '刷新' }}
 				</button>
 			</div>
 
@@ -36,7 +36,7 @@
 					class="trade-item"
 					:style="{ '--trade-color': record.color || '#ffb45f' }"
 				>
-					<span class="trade-icon">{{ record.icon || 'trade' }}</span>
+					<span class="trade-icon">{{ record.icon || '记' }}</span>
 					<div class="trade-content">
 						<div class="trade-main">
 							<div>
@@ -49,7 +49,7 @@
 					</div>
 				</div>
 			</div>
-			<p v-else class="trade-empty">No trade history yet. It will appear here after draws or sells.</p>
+			<p v-else class="trade-empty">暂无交易记录</p>
 		</div>
 	</el-dialog>
 </template>
@@ -112,7 +112,6 @@ defineEmits(['update:modelValue', 'refresh'])
 .summary-label {
 	font-size: 11px;
 	letter-spacing: 0.08em;
-	text-transform: uppercase;
 	color: rgba(103, 48, 16, 0.62);
 }
 
@@ -168,7 +167,6 @@ defineEmits(['update:modelValue', 'refresh'])
 	background: color-mix(in srgb, var(--trade-color) 20%, white);
 	font-size: 16px;
 	font-weight: 700;
-	text-transform: uppercase;
 }
 
 .trade-content {

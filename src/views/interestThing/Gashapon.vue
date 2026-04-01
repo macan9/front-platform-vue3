@@ -11,13 +11,13 @@
 				<div class="machine-layout">
 					<div ref="machineShellRef" class="machine-shell">
 						<div class="machine-top">
-							<div class="brand-panel">
-								<div class="brand-mark">G</div>
-								<div>
-									<p class="brand-title">Dream Gacha</p>
-									<p class="brand-subtitle">Turn the handle and bring surprises home</p>
+								<div class="brand-panel">
+									<div class="brand-mark">G</div>
+									<div>
+										<p class="brand-title">梦幻扭蛋机</p>
+										<p class="brand-subtitle">转动把手，把惊喜带回家</p>
+									</div>
 								</div>
-							</div>
 
 							<div class="prize-rail">
 								<div
@@ -69,7 +69,7 @@
 							<div class="control-area">
 								<div class="coin-slot">
 									<div class="slot-mouth" />
-									<p>Insert Dream</p>
+									<p>投入梦想</p>
 								</div>
 
 								<button
@@ -86,8 +86,8 @@
 
 							<div class="machine-bottom">
 								<div class="tray-header">
-									<span class="tray-label">Capsule Out</span>
-									<span class="tray-hint">{{ isRolling ? 'Rolling...' : capsuleHint }}</span>
+									<span class="tray-label">扭蛋出口</span>
+									<span class="tray-hint">{{ isRolling ? '转动中...' : capsuleHint }}</span>
 								</div>
 
 								<div ref="trayRef" class="capsule-tray">
@@ -104,7 +104,7 @@
 										<span class="capsule-bottom" />
 										<span class="capsule-core">{{ dispensedPrize.icon }}</span>
 									</button>
-									<p v-else class="tray-empty">The capsule will drop here</p>
+									<p v-else class="tray-empty">扭蛋会从这里掉落</p>
 								</div>
 							</div>
 						</div>
@@ -112,26 +112,23 @@
 						<div ref="panelRef" class="side-panel">
 							<div class="my-gashapon-panel">
 								<div class="panel-head">
-									<p class="panel-kicker">My Collection</p>
-									<h2>My Gacha</h2>
+									<p class="panel-kicker">我的收藏</p>
+									<h2>我的扭蛋</h2>
 								</div>
 
 								<div class="collection-card">
 									<div class="collection-summary">
 										<div class="collection-stat">
-											<span class="collection-stat-label">Owned</span>
+											<span class="collection-stat-label">持有数量</span>
 											<strong>{{ collectionSummary.total }}</strong>
 										</div>
 										<div class="collection-stat">
-											<span class="collection-stat-label">Sellable</span>
+											<span class="collection-stat-label">可出售积分</span>
 											<strong>{{ collectionSummary.sellablePoints }}</strong>
 										</div>
 									</div>
-									<p class="collection-note">
-										Open the prize drawer to review your synced inventory and sell duplicate rewards.
-									</p>
 									<button type="button" class="panel-cta-button" :disabled="!isLoggedIn" @click="showPrizesDialog = true">
-										My Prizes
+										查看奖品
 									</button>
 								</div>
 							</div>
@@ -139,27 +136,25 @@
 							<div class="record-panel">
 								<div class="profile-summary">
 									<div class="profile-stat">
-										<span class="collection-stat-label">Points</span>
+										<span class="collection-stat-label">积分</span>
 										<strong>{{ gachaProfile.points }}</strong>
 									</div>
 									<div class="profile-stat">
-										<span class="collection-stat-label">Draws Left</span>
+										<span class="collection-stat-label">剩余次数</span>
 										<strong>{{ gachaProfile.drawsRemainingToday }}</strong>
 									</div>
 									<div class="profile-stat">
-										<span class="collection-stat-label">Cost</span>
+										<span class="collection-stat-label">单次消耗</span>
 										<strong>{{ gachaProfile.drawCost }}</strong>
 									</div>
 								</div>
-								<p class="profile-refresh">
-									{{ isLoggedIn ? `Next reset: ${nextRefreshText}` : 'Log in to sync your points, inventory, and history' }}
-								</p>
+								<p v-if="isLoggedIn" class="profile-refresh">下次刷新：{{ nextRefreshText }}</p>
 								<div class="panel-actions">
 									<button type="button" class="text-action-button" :disabled="!isLoggedIn" @click="showHistoryDialog = true">
-										Draw History
+										中奖记录
 									</button>
 									<button type="button" class="text-action-button" :disabled="!isLoggedIn" @click="showTradeDialog = true">
-										Trade History
+										交易记录
 									</button>
 									<button
 										type="button"
@@ -167,10 +162,9 @@
 										:disabled="!isLoggedIn || isRefreshingData"
 										@click="refreshUserData"
 									>
-										{{ isRefreshingData ? 'Refreshing...' : 'Refresh Data' }}
+										{{ isRefreshingData ? '刷新中...' : '刷新数据' }}
 									</button>
 								</div>
-								<p class="history-entry-tip">{{ historyEntryTip }}</p>
 							</div>
 						</div>
 					</div>
@@ -180,7 +174,7 @@
 
 		<el-dialog
 			v-model="showResultDialog"
-			title="Draw Result"
+			title="抽取结果"
 			width="420px"
 			append-to-body
 			class="result-dialog"
@@ -192,8 +186,8 @@
 					<h3>{{ openedPrize.name }}</h3>
 					<p class="result-desc">{{ openedPrize.description }}</p>
 					<div class="result-tags">
-						<span>Theme {{ openedPrize.theme }}</span>
-						<span>No. {{ String(openedPrize.displayId || openedPrize.id || 0).padStart(2, '0') }}</span>
+						<span>主题 {{ openedPrize.theme }}</span>
+						<span>编号 {{ String(openedPrize.displayId || openedPrize.id || 0).padStart(2, '0') }}</span>
 					</div>
 				</template>
 			</div>
@@ -443,12 +437,12 @@ const canDraw = computed(() => {
 })
 
 const capsuleHint = computed(() => {
-	if (!isLoggedIn.value) return 'Log in to sync backend data and start drawing'
-	if (dispensedPrize.value && canOpenCapsule.value) return 'Click the capsule to open it'
-	if (dispensedPrize.value) return 'Capsule sliding out...'
-	if (Number(gachaProfile.value.drawsRemainingToday || 0) <= 0) return 'Daily limit reached. Wait for the next reset'
-	if (Number(gachaProfile.value.points || 0) < Number(gachaProfile.value.drawCost || 0)) return 'Not enough points for a draw'
-	return 'Turn the handle to draw'
+	if (!isLoggedIn.value) return '请先登录'
+	if (dispensedPrize.value && canOpenCapsule.value) return '点击打开扭蛋'
+	if (dispensedPrize.value) return '扭蛋掉落中...'
+	if (Number(gachaProfile.value.drawsRemainingToday || 0) <= 0) return '今日次数已用完'
+	if (Number(gachaProfile.value.points || 0) < Number(gachaProfile.value.drawCost || 0)) return '积分不足'
+	return '转动把手开始抽取'
 })
 
 const formatDateTime = (value, includeDate = false) => {
@@ -464,14 +458,6 @@ const formatDateTime = (value, includeDate = false) => {
 }
 
 const nextRefreshText = computed(() => formatDateTime(gachaProfile.value.nextRefreshAt, true))
-
-const historyEntryTip = computed(() => {
-	if (!isLoggedIn.value) {
-		return 'This page now uses backend APIs. Log in to view your points, inventory, and trade history.'
-	}
-
-	return `Synced ${historyRecords.value.length} draw records and ${tradeRecords.value.length} trade records.`
-})
 
 const formatHistoryTime = (value) => {
 	if (!value) return '--:--'
@@ -512,9 +498,9 @@ const mapPrizeItem = (item = {}) => {
 		id: displayId,
 		displayId,
 		inventoryId: Number(item.inventoryId || item.inventory_id || item.id || 0),
-		name: item.prize_name || item.name || meta.name || 'Unknown Prize',
-		icon: item.prize_icon || item.icon || meta.icon || 'prize',
-		description: item.prize_description || item.description || meta.description || 'No description',
+		name: item.prize_name || item.name || meta.name || '未知奖品',
+		icon: item.prize_icon || item.icon || meta.icon || '奖',
+		description: item.prize_description || item.description || meta.description || '暂无描述',
 		rarity: item.rarity || meta.rarity || '--',
 		theme: item.theme || meta.theme || '--',
 		color: item.color || meta.color || '#ffb45f',
@@ -528,18 +514,18 @@ const mapPrizeItem = (item = {}) => {
 const mapTransactionRecord = (item = {}) => {
 	const typeCode = item.transaction_type || item.type || 'draw'
 	const meta = prizeMetaMap.value.get(Number(item.prize_id || item.prizeId || 0)) || {}
-	const prizeName = item.prize_name || item.prizeName || meta.name || 'Unknown Prize'
+	const prizeName = item.prize_name || item.prizeName || meta.name || '未知奖品'
 	const isDraw = typeCode === 'draw'
 
 	return {
 		tradeId: Number(item.id || 0),
 		typeCode,
-		type: isDraw ? 'Draw' : 'Sell',
-		status: isDraw ? 'In Inventory' : 'Points Added',
-		title: isDraw ? `Drew ${prizeName}` : `Sold ${prizeName}`,
-		description: item.remark || (isDraw ? 'Draw completed and the prize was added to inventory.' : 'Sell completed and points were added back.'),
+		type: isDraw ? '抽取' : '出售',
+		status: isDraw ? '已入库' : '已到账',
+		title: isDraw ? `抽中 ${prizeName}` : `出售 ${prizeName}`,
+		description: item.remark || (isDraw ? '奖品已加入库存。' : '出售完成，积分已返还。'),
 		createdAt: item.created_at || item.createdAt || '',
-		icon: meta.icon || (isDraw ? 'draw' : 'sell'),
+		icon: meta.icon || (isDraw ? '抽' : '售'),
 		color: meta.color || (isDraw ? '#ffb45f' : '#8fd3a6'),
 		rarity: item.rarity || meta.rarity || '--',
 		theme: meta.theme || '--',
@@ -561,7 +547,7 @@ const loadPrizeList = async () => {
 	prizeLoading.value = true
 	try {
 		const response = await gachaPrizeListGet()
-		const data = resolveResponseData(response, 'Failed to load prize list')
+		const data = resolveResponseData(response, '获取奖池失败')
 		prizes.value = Array.isArray(data) ? data.map((item) => mapPrizeItem(item)) : []
 	} finally {
 		prizeLoading.value = false
@@ -574,7 +560,7 @@ const loadProfile = async () => {
 	profileLoading.value = true
 	try {
 		const response = await gachaProfileGet()
-		const data = resolveResponseData(response, 'Failed to load gacha profile')
+		const data = resolveResponseData(response, '获取扭蛋资料失败')
 		gachaProfile.value = {
 			...createEmptyProfile(),
 			...data,
@@ -596,7 +582,7 @@ const loadInventory = async () => {
 	inventoryLoading.value = true
 	try {
 		const response = await gachaInventoryGet({ status: 'owned', currentPage: 1, pageSize: 20 })
-		const data = resolveResponseData(response, 'Failed to load inventory')
+		const data = resolveResponseData(response, '获取库存失败')
 		const list = Array.isArray(data?.list) ? data.list : []
 		ownedPrizes.value = list.map((item) => mapPrizeItem(item))
 	} finally {
@@ -610,7 +596,7 @@ const loadTransactions = async () => {
 	transactionLoading.value = true
 	try {
 		const response = await gachaTransactionsGet({ type: 'all', currentPage: 1, pageSize: 20 })
-		const data = resolveResponseData(response, 'Failed to load transactions')
+		const data = resolveResponseData(response, '获取记录失败')
 		const list = Array.isArray(data?.list) ? data.list : []
 		tradeRecords.value = list.map((item) => mapTransactionRecord(item))
 	} finally {
@@ -630,7 +616,7 @@ const refreshUserData = async () => {
 
 const requestRollPrize = async () => {
 	const response = await gachaDrawReq()
-	const data = resolveResponseData(response, 'Draw failed')
+	const data = resolveResponseData(response, '抽取失败')
 	const prize = mapPrizeItem(data?.prize)
 
 	gachaProfile.value = {
@@ -681,16 +667,16 @@ const playIntro = () => {
 const rollCapsule = async () => {
 	if (isRolling.value) return
 	if (!isLoggedIn.value) {
-		ElMessage.warning('Please log in before drawing')
+		ElMessage.warning('请先登录后再抽取')
 		return
 	}
 	if (!canDraw.value) {
 		if (Number(gachaProfile.value.drawsRemainingToday || 0) <= 0) {
-			ElMessage.warning('You have used all draws for today')
+			ElMessage.warning('今日抽取次数已用完')
 			return
 		}
 		if (Number(gachaProfile.value.points || 0) < Number(gachaProfile.value.drawCost || 0)) {
-			ElMessage.warning('Not enough points for a draw')
+			ElMessage.warning('积分不足，无法抽取')
 			return
 		}
 		return
@@ -808,8 +794,8 @@ const sellPrize = async (item) => {
 	sellingInventoryId.value = item.inventoryId
 	try {
 		const response = await gachaInventorySellReq(item.inventoryId)
-		resolveResponseData(response, 'Failed to sell prize')
-		ElMessage.success(`Sold ${item.name} and returned points to your balance`)
+		resolveResponseData(response, '出售失败')
+		ElMessage.success(`已出售 ${item.name}`)
 		await refreshUserData()
 	} finally {
 		sellingInventoryId.value = null
@@ -1489,12 +1475,6 @@ onBeforeUnmount(() => {
 	color: #673010;
 }
 
-.collection-note {
-	line-height: 1.6;
-	font-size: 13px;
-	color: rgba(103, 48, 16, 0.72);
-}
-
 .panel-cta-button {
 	padding: 14px 16px;
 	border: 0;
@@ -1664,12 +1644,6 @@ onBeforeUnmount(() => {
 	color: #7a4218;
 }
 
-.history-entry-tip {
-	font-size: 13px;
-	line-height: 1.6;
-	color: rgba(103, 48, 16, 0.7);
-}
-
 @keyframes twinkle {
 	0%,
 	100% {
@@ -1812,10 +1786,6 @@ onBeforeUnmount(() => {
 
 	.text-action-button {
 		font-size: 15px;
-	}
-
-	.history-entry-tip {
-		font-size: 12px;
 	}
 
 	.profile-summary {
