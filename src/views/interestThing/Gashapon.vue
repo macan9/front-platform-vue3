@@ -123,43 +123,16 @@
 											<strong>{{ collectionSummary.total }}</strong>
 										</div>
 										<div class="collection-stat">
-											<span class="collection-stat-label">Latest</span>
-											<strong>{{ collectionSummary.latestName }}</strong>
+											<span class="collection-stat-label">Sellable</span>
+											<strong>{{ collectionSummary.sellablePoints }}</strong>
 										</div>
 									</div>
-
-									<div v-if="ownedPrizes.length" class="collection-grid">
-										<div
-											v-for="item in ownedPrizes"
-											:key="item.inventoryId"
-											class="collection-item"
-											:style="{ '--collection-color': item.color }"
-										>
-											<span class="collection-item-icon">{{ item.icon }}</span>
-											<div class="collection-item-content">
-												<p class="collection-item-name">{{ item.name }}</p>
-												<p class="collection-item-meta">
-													{{ item.rarity }} 路 No. {{ String(item.displayId || item.id || 0).padStart(2, '0') }}
-												</p>
-												<p class="collection-item-meta">Sell for {{ item.sellPoints }} pts</p>
-											</div>
-											<div class="collection-item-actions">
-												<button
-													type="button"
-													class="collection-sell"
-													:disabled="sellingInventoryId === item.inventoryId"
-													@click="sellPrize(item)"
-												>
-													{{ sellingInventoryId === item.inventoryId ? 'Selling...' : 'Sell' }}
-												</button>
-											</div>
-										</div>
-									</div>
-									<div v-else class="collection-empty">
-										<div class="placeholder-icon">?</div>
-										<h3>No Capsules Yet</h3>
-										<p class="result-desc">New prizes from the backend inventory will appear here after each draw.</p>
-									</div>
+									<p class="collection-note">
+										Open the prize drawer to review your synced inventory and sell duplicate rewards.
+									</p>
+									<button type="button" class="panel-cta-button" :disabled="!isLoggedIn" @click="showPrizesDialog = true">
+										My Prizes
+									</button>
 								</div>
 							</div>
 
@@ -226,103 +199,29 @@
 			</div>
 		</el-dialog>
 
-		<el-dialog v-model="showHistoryDialog" title="Draw History" width="560px" append-to-body style="margin-top: 12%;">
-			<div class="history-dialog-body">
-				<div v-if="historyRecords.length" class="history-summary">
-					<div class="history-summary-card">
-						<span class="history-summary-label">Records</span>
-						<strong>{{ historyRecords.length }}</strong>
-					</div>
-					<div class="history-summary-card">
-						<span class="history-summary-label">Latest Rarity</span>
-						<strong>{{ historyRecords[0].rarity }}</strong>
-					</div>
-					<div class="history-summary-card accent">
-						<span class="history-summary-label">Latest Theme</span>
-						<strong>{{ historyRecords[0].theme }}</strong>
-					</div>
-				</div>
+		<PrizeInventoryDialog
+			v-model="showPrizesDialog"
+			:prizes="ownedPrizes"
+			:selling-inventory-id="sellingInventoryId"
+			@sell="sellPrize"
+		/>
 
-				<div class="history-dialog-actions">
-					<button type="button" class="history-clear" :disabled="isRefreshingData" @click="refreshUserData">
-						{{ isRefreshingData ? 'Refreshing...' : 'Refresh' }}
-					</button>
-				</div>
+		<DrawHistoryDialog
+			v-model="showHistoryDialog"
+			:records="historyRecords"
+			:loading="isRefreshingData"
+			:format-time="formatHistoryTime"
+			@refresh="refreshUserData"
+		/>
 
-				<div v-if="historyRecords.length" class="history-list">
-					<div
-						v-for="entry in historyRecords"
-						:key="entry.historyId"
-						class="history-item"
-						:style="{ '--history-color': entry.color }"
-					>
-						<span class="history-icon">{{ entry.icon }}</span>
-						<div class="history-content">
-							<div class="history-main">
-								<div>
-									<p class="history-name">{{ entry.name }}</p>
-									<p class="history-meta">{{ entry.rarity }} 路 No. {{ String(entry.displayId || entry.id || 0).padStart(2, '0') }}</p>
-								</div>
-								<span class="history-time">{{ formatHistoryTime(entry.droppedAt) }}</span>
-							</div>
-							<p class="history-desc">{{ entry.description }}</p>
-							<div class="history-tags">
-								<span>Theme {{ entry.theme }}</span>
-								<span>Color {{ entry.color }}</span>
-							</div>
-						</div>
-					</div>
-				</div>
-				<p v-else class="history-empty">No draw history yet. Spin one to get started.</p>
-			</div>
-		</el-dialog>
-
-		<el-dialog v-model="showTradeDialog" title="Trade History" width="560px" append-to-body style="margin-top: 12%;">
-			<div class="history-dialog-body">
-				<div class="history-summary">
-					<div class="history-summary-card">
-						<span class="history-summary-label">Records</span>
-						<strong>{{ tradeSummary.total }}</strong>
-					</div>
-					<div class="history-summary-card">
-						<span class="history-summary-label">Latest Type</span>
-						<strong>{{ tradeSummary.latestType }}</strong>
-					</div>
-					<div class="history-summary-card accent">
-						<span class="history-summary-label">Latest Status</span>
-						<strong>{{ tradeSummary.latestStatus }}</strong>
-					</div>
-				</div>
-
-				<div class="history-dialog-actions">
-					<button type="button" class="history-clear" :disabled="isRefreshingData" @click="refreshUserData">
-						{{ isRefreshingData ? 'Refreshing...' : 'Refresh' }}
-					</button>
-				</div>
-
-				<div v-if="tradeRecords.length" class="history-list">
-					<div
-						v-for="record in tradeRecords"
-						:key="record.tradeId"
-						class="history-item trade-item"
-						:style="{ '--history-color': record.color || '#ffb45f' }"
-					>
-						<span class="history-icon">{{ record.icon || 'trade' }}</span>
-						<div class="history-content">
-							<div class="history-main">
-								<div>
-									<p class="history-name">{{ record.title }}</p>
-									<p class="history-meta">{{ record.type }} · {{ record.status }}</p>
-								</div>
-								<span class="history-time">{{ formatHistoryTime(record.createdAt) }}</span>
-							</div>
-							<p class="history-desc">{{ record.description }}</p>
-						</div>
-					</div>
-				</div>
-				<p v-else class="history-empty">No trade history yet. It will appear here after draws or sells.</p>
-			</div>
-		</el-dialog>
+		<TradeHistoryDialog
+			v-model="showTradeDialog"
+			:records="tradeRecords"
+			:summary="tradeSummary"
+			:loading="isRefreshingData"
+			:format-time="formatHistoryTime"
+			@refresh="refreshUserData"
+		/>
 	</section>
 </template>
 
@@ -337,6 +236,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { gsap } from 'gsap'
 
+import DrawHistoryDialog from './Gashapon/DrawHistoryDialog.vue'
+import PrizeInventoryDialog from './Gashapon/PrizeInventoryDialog.vue'
+import TradeHistoryDialog from './Gashapon/TradeHistoryDialog.vue'
 import {
 	gachaDrawReq,
 	gachaInventoryGet,
@@ -377,6 +279,7 @@ const sellingInventoryId = ref(null)
 const dispensedPrize = ref(null)
 const openedPrize = ref(null)
 const showResultDialog = ref(false)
+const showPrizesDialog = ref(false)
 const showHistoryDialog = ref(false)
 const showTradeDialog = ref(false)
 const ownedPrizes = ref([])
@@ -508,7 +411,7 @@ const panelStyle = computed(() => ({
 
 const collectionSummary = computed(() => ({
 	total: Number(gachaProfile.value.ownedCount || ownedPrizes.value.length || 0),
-	latestName: ownedPrizes.value[0]?.name || '--',
+	sellablePoints: ownedPrizes.value.reduce((sum, item) => sum + Number(item.sellPoints || 0), 0),
 }))
 
 const tradeSummary = computed(() => ({
@@ -1586,95 +1489,27 @@ onBeforeUnmount(() => {
 	color: #673010;
 }
 
-.collection-grid {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 10px;
-	flex: 1;
-	min-height: 0;
-	padding-right: 4px;
-	overflow-y: auto;
+.collection-note {
+	line-height: 1.6;
+	font-size: 13px;
+	color: rgba(103, 48, 16, 0.72);
 }
 
-.collection-grid::-webkit-scrollbar {
-	width: 8px;
-}
-
-.collection-grid::-webkit-scrollbar-track {
-	background: rgba(255, 240, 229, 0.72);
-	border-radius: 999px;
-}
-
-.collection-grid::-webkit-scrollbar-thumb {
-	border-radius: 999px;
-	background: linear-gradient(180deg, rgba(225, 123, 68, 0.95), rgba(171, 77, 30, 0.95));
-}
-
-.collection-item {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 12px;
-	border-radius: 18px;
-	background: rgba(255, 255, 255, 0.74);
-	border: 1px solid rgba(255, 255, 255, 0.78);
-	box-shadow: 0 10px 20px rgba(130, 67, 27, 0.08);
-}
-
-.collection-item-icon {
-	display: grid;
-	place-items: center;
-	width: 44px;
-	height: 44px;
-	border-radius: 14px;
-	background: color-mix(in srgb, var(--collection-color) 20%, white);
-	font-size: 24px;
-}
-
-.collection-item-content {
-	min-width: 0;
-}
-
-.collection-item-name {
-	font-size: 15px;
-	font-weight: 700;
-	color: #673010;
-}
-
-.collection-item-meta {
-	margin-top: 4px;
-	font-size: 12px;
-	color: rgba(103, 48, 16, 0.68);
-}
-
-.collection-item-actions {
-	flex: 0 0 auto;
-}
-
-.collection-sell {
-	padding: 8px 12px;
+.panel-cta-button {
+	padding: 14px 16px;
 	border: 0;
-	border-radius: 999px;
+	border-radius: 18px;
 	background: linear-gradient(135deg, #ff9a5f, #ef5d2f);
 	color: #fffaf4;
-	font-size: 12px;
+	font-size: 15px;
 	font-weight: 700;
 	cursor: pointer;
-	box-shadow: 0 10px 20px rgba(206, 95, 44, 0.16);
-}
+	box-shadow: 0 16px 28px rgba(206, 95, 44, 0.22);
 
-.collection-sell:disabled {
-	cursor: progress;
-	opacity: 0.7;
-}
-
-.collection-empty {
-	display: grid;
-	place-items: center;
-	align-content: center;
-	flex: 1;
-	min-height: 220px;
-	text-align: center;
+	&:disabled {
+		cursor: not-allowed;
+		opacity: 0.65;
+	}
 }
 
 .record-panel {
@@ -1795,8 +1630,7 @@ onBeforeUnmount(() => {
 	box-shadow: 0 18px 30px rgba(125, 60, 21, 0.08);
 }
 
-.result-card h3,
-.collection-empty h3 {
+.result-card h3 {
 	position: relative;
 	z-index: 1;
 	text-align: center;
@@ -1834,179 +1668,6 @@ onBeforeUnmount(() => {
 	font-size: 13px;
 	line-height: 1.6;
 	color: rgba(103, 48, 16, 0.7);
-}
-
-.history-dialog-body {
-	display: flex;
-	flex-direction: column;
-	gap: 14px;
-	height: 520px;
-}
-
-.history-summary {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 10px;
-	height: 84px;
-	flex: 0 0 auto;
-}
-
-.history-summary-card {
-	display: grid;
-	gap: 6px;
-	padding: 12px;
-	border-radius: 18px;
-	background: rgba(255, 255, 255, 0.72);
-	border: 1px solid rgba(255, 255, 255, 0.7);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-}
-
-.history-summary-card.accent {
-	background: linear-gradient(135deg, rgba(255, 226, 190, 0.92), rgba(255, 184, 116, 0.82));
-}
-
-.history-summary-label {
-	font-size: 11px;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	color: rgba(103, 48, 16, 0.62);
-}
-
-.history-summary-card strong {
-	font-size: 16px;
-	color: #66310f;
-}
-
-.history-dialog-actions {
-	display: flex;
-	justify-content: center;
-	flex: 0 0 auto;
-}
-
-.history-clear {
-	border: 0;
-	background: transparent;
-	font-size: 13px;
-	color: #a55320;
-	cursor: pointer;
-}
-
-.history-clear:disabled {
-	cursor: progress;
-	opacity: 0.65;
-}
-
-.history-list {
-	display: grid;
-	gap: 10px;
-	flex: 1 1 auto;
-	align-content: start;
-	min-height: 0;
-	padding-right: 4px;
-	overflow-y: auto;
-}
-
-.history-list::-webkit-scrollbar {
-	width: 8px;
-}
-
-.history-list::-webkit-scrollbar-track {
-	background: rgba(255, 240, 229, 0.72);
-	border-radius: 999px;
-}
-
-.history-list::-webkit-scrollbar-thumb {
-	border-radius: 999px;
-	background: linear-gradient(180deg, rgba(225, 123, 68, 0.95), rgba(171, 77, 30, 0.95));
-}
-
-.history-item {
-	display: flex;
-	align-items: flex-start;
-	gap: 12px;
-	padding: 12px;
-	border-radius: 18px;
-	background: rgba(255, 255, 255, 0.74);
-	border: 1px solid rgba(255, 255, 255, 0.78);
-	box-shadow: 0 10px 20px rgba(130, 67, 27, 0.08);
-}
-
-.trade-item {
-	align-items: center;
-}
-
-.history-icon {
-	display: grid;
-	place-items: center;
-	width: 42px;
-	height: 42px;
-	border-radius: 14px;
-	background: color-mix(in srgb, var(--history-color) 20%, white);
-	font-size: 24px;
-}
-
-.history-content {
-	display: grid;
-	gap: 8px;
-	flex: 1;
-	min-width: 0;
-}
-
-.history-main {
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start;
-	gap: 12px;
-}
-
-.history-name {
-	font-size: 15px;
-	font-weight: 700;
-	color: #673010;
-}
-
-.history-meta,
-.history-empty {
-	font-size: 13px;
-	color: rgba(103, 48, 16, 0.68);
-}
-
-.history-empty {
-	display: grid;
-	place-items: center;
-	flex: 1 1 auto;
-	min-height: 0;
-	text-align: center;
-}
-
-.history-time {
-	flex: 0 0 auto;
-	padding: 4px 8px;
-	border-radius: 999px;
-	background: rgba(255, 245, 235, 0.92);
-	font-size: 12px;
-	font-weight: 700;
-	color: #9a4d1f;
-}
-
-.history-desc {
-	line-height: 1.5;
-	font-size: 13px;
-	color: rgba(103, 48, 16, 0.82);
-}
-
-.history-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-}
-
-.history-tags span {
-	padding: 6px 10px;
-	border-radius: 999px;
-	background: rgba(255, 247, 240, 0.9);
-	font-size: 12px;
-	color: #8b471d;
 }
 
 @keyframes twinkle {
@@ -2078,15 +1739,22 @@ onBeforeUnmount(() => {
 	}
 
 	.machine-main {
-		grid-template-columns: minmax(0, 1.1fr) minmax(132px, 0.9fr);
-		gap: 12px;
+		grid-template-columns: 1fr;
+		gap: 16px;
+		height: auto;
 		align-items: stretch;
 	}
 
 	.machine-body {
 		width: 100%;
+		height: auto;
 		padding: 14px 14px 18px;
 		border-radius: 28px;
+	}
+
+	.side-panel {
+		grid-template-rows: none;
+		height: auto;
 	}
 
 	.machine-window {
@@ -2130,20 +1798,6 @@ onBeforeUnmount(() => {
 		font-size: 20px;
 	}
 
-	.collection-item {
-		flex-direction: column;
-		align-items: flex-start;
-	}
-
-	.collection-item-actions,
-	.collection-sell {
-		width: 100%;
-	}
-
-	.collection-empty {
-		min-height: 160px;
-	}
-
 	.result-icon,
 	.placeholder-icon {
 		width: 84px;
@@ -2152,8 +1806,7 @@ onBeforeUnmount(() => {
 		font-size: 42px;
 	}
 
-	.result-card h3,
-	.collection-empty h3 {
+	.result-card h3 {
 		font-size: 22px;
 	}
 
@@ -2163,15 +1816,6 @@ onBeforeUnmount(() => {
 
 	.history-entry-tip {
 		font-size: 12px;
-	}
-
-	.history-dialog-body {
-		height: 60vh;
-	}
-
-	.history-summary {
-		grid-template-columns: 1fr;
-		height: auto;
 	}
 
 	.profile-summary {

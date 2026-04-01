@@ -106,6 +106,7 @@ export const menu_left_config = [
                 value: '5-1',
                 path: '/MyResume',
                 icon: 'Tickets',
+                moblieHide: true,
             },
         ],
     },
@@ -146,12 +147,14 @@ export const menu_left_config = [
                 value: '7-2',
                 path: '/fireworks',
                 icon: 'Promotion',
+                moblieHide: true,
             },
             {
                 label: '浩瀚星海',
                 value: '7-1',
                 path: '/starSea',
                 icon: 'StarFilled',
+                moblieHide: true,
             },
             
         ],

@@ -92,7 +92,7 @@
 
 			<LeaderboardDialog
 				:visible="showLeaderboard"
-				:game-code="2"
+				game-code="GraffitiJump"
 				:limit="10"
 				variant="graffiti"
 				@close="showLeaderboard = false"
@@ -111,7 +111,7 @@ import FullscreenToggle from '@/components/FullscreenToggle.vue'
 import LeaderboardDialog from '@/views/three/components/LeaderboardDialog.vue'
 import { DailyTimeFormat } from '@/utils/utils.js'
 
-const GAME_CODE = 2
+const GAME_CODE = 'GraffitiJump'
 const STORAGE_KEY = 'graffiti-jump-high-score'
 const LAST_SCORE_STORAGE_KEY = 'graffiti-jump-last-score'
 const VIEW_WIDTH = 420

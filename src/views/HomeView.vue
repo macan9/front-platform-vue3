@@ -13,12 +13,6 @@
       <MenuForLeft v-if="!isMobile && pageMenuVisible && showLeftMenu" :topMenuValue="topMenuValue" />
 
       <div class="main-display" :class="hasPadding ? 'main-display-padding' : ''">
-        <div v-if="showGlobalFullscreenToggle" class="home-fullscreen-toggle">
-          <FullscreenToggle
-            v-model:fullscreen="pageFullscreen"
-            v-model:menu-visible="pageMenuVisible"
-          />
-        </div>
         <router-view />
       </div>
     </div>
@@ -29,7 +23,6 @@
 import MenuForTop from '@/components/menu/MenuForTop.vue'
 import MenuForLeft from '@/components/menu/MenuForLeft.vue'
 import MenuForMobile from '@/components/menu/MenuForMobile.vue'
-import FullscreenToggle from '@/components/FullscreenToggle.vue'
 import { ref, watch, computed, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
@@ -41,7 +34,6 @@ export default {
     MenuForTop,
     MenuForLeft,
     MenuForMobile,
-    FullscreenToggle,
   },
   setup() {
     const store = useStore()
@@ -52,7 +44,6 @@ export default {
     const pageMenuVisible = ref(true)
     const route = useRoute()
     const localFullscreenRoutes = ['/DontHitTheSpike', '/GraffitiJump']
-    const showGlobalFullscreenToggle = computed(() => !localFullscreenRoutes.includes(route.path))
 
     const setTopMenuValue = (val) => {
       topMenuValue.value = val
@@ -127,7 +118,6 @@ export default {
       hasPadding,
       pageFullscreen,
       pageMenuVisible,
-      showGlobalFullscreenToggle,
       showLeftMenu,
       getMockData,
       setTopMenuValue,
@@ -170,14 +160,6 @@ export default {
     position: relative;
     overflow: hidden;
   }
-
-  .home-fullscreen-toggle {
-    position: absolute;
-    top: 18px;
-    right: 18px;
-    z-index: 20;
-  }
-
   .main-display-padding {
     padding: 0;
     background: transparent;
@@ -236,13 +218,6 @@ export default {
       border: none;
       border-radius: 0;
       box-shadow: none;
-    }
-
-    .home-fullscreen-toggle {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 4000;
     }
   }
 }
