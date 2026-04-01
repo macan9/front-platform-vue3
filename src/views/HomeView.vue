@@ -1,12 +1,24 @@
 <template>
-  <div class="home" :class="{ 'is-mobile': isMobile }">
-    <MenuForMobile v-if="isMobile" @update-menu-value="setTopMenuValue" />
-    <MenuForTop v-else @update-menu-value="setTopMenuValue" />
+  <div
+    class="home"
+    :class="{
+      'is-mobile': isMobile,
+      'is-page-fullscreen': pageFullscreen,
+    }"
+  >
+    <MenuForMobile v-if="isMobile && pageMenuVisible" @update-menu-value="setTopMenuValue" />
+    <MenuForTop v-else-if="pageMenuVisible" @update-menu-value="setTopMenuValue" />
 
     <div class="display-flex-main">
-      <MenuForLeft v-if="!isMobile && showLeftMenu" :topMenuValue="topMenuValue" />
+      <MenuForLeft v-if="!isMobile && pageMenuVisible && showLeftMenu" :topMenuValue="topMenuValue" />
 
       <div class="main-display" :class="hasPadding ? 'main-display-padding' : ''">
+        <div v-if="showGlobalFullscreenToggle" class="home-fullscreen-toggle">
+          <FullscreenToggle
+            v-model:fullscreen="pageFullscreen"
+            v-model:menu-visible="pageMenuVisible"
+          />
+        </div>
         <router-view />
       </div>
     </div>
@@ -17,7 +29,8 @@
 import MenuForTop from '@/components/menu/MenuForTop.vue'
 import MenuForLeft from '@/components/menu/MenuForLeft.vue'
 import MenuForMobile from '@/components/menu/MenuForMobile.vue'
-import { ref, watch, computed } from 'vue'
+import FullscreenToggle from '@/components/FullscreenToggle.vue'
+import { ref, watch, computed, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 import { menu_left_config } from '@/common/config/menu_left_config'
@@ -28,18 +41,22 @@ export default {
     MenuForTop,
     MenuForLeft,
     MenuForMobile,
+    FullscreenToggle,
   },
   setup() {
     const store = useStore()
     const menuVal = localStorage.getItem('topMenuValue')
     const topMenuValue = menuVal ? ref(menuVal) : ref('1')
     const isMobile = computed(() => store.state.isMobile)
+    const pageFullscreen = ref(false)
+    const pageMenuVisible = ref(true)
+    const route = useRoute()
+    const localFullscreenRoutes = ['/DontHitTheSpike', '/GraffitiJump']
+    const showGlobalFullscreenToggle = computed(() => !localFullscreenRoutes.includes(route.path))
 
     const setTopMenuValue = (val) => {
       topMenuValue.value = val
     }
-
-    const route = useRoute()
     const hasPadding = ref(true)
     const noPaddingRoutes = ['/leafletMap', '/threeGuiBase', '/threePlanet', '/ThreeIsland', '/DontHitTheSpike', '/fireworks']
     const showLeftMenu = computed(() => {
@@ -80,9 +97,23 @@ export default {
       (newPath) => {
         syncTopMenuByRoute(newPath)
         judgePadding(newPath)
+
+        if (!localFullscreenRoutes.includes(newPath)) {
+          pageFullscreen.value = false
+          pageMenuVisible.value = true
+        }
       },
       { immediate: true }
     )
+
+    provide('homeLayoutControls', {
+      setFullscreen(value) {
+        pageFullscreen.value = Boolean(value)
+      },
+      setMenuVisible(value) {
+        pageMenuVisible.value = Boolean(value)
+      },
+    })
 
     const getMockData = () => {
     }
@@ -94,6 +125,9 @@ export default {
       topMenuValue,
       isMobile,
       hasPadding,
+      pageFullscreen,
+      pageMenuVisible,
+      showGlobalFullscreenToggle,
       showLeftMenu,
       getMockData,
       setTopMenuValue,
@@ -105,6 +139,7 @@ export default {
 <style lang="scss">
 .home {
   height: 100%;
+  position: relative;
   background:
     radial-gradient(circle at top left, rgba(160, 207, 255, 0.18), transparent 28%),
     linear-gradient(180deg, #f8fbff 0%, #f2f6fb 100%);
@@ -132,8 +167,15 @@ export default {
   .main-display {
     flex: 1;
     min-width: 0;
-    // border-radius: 24px;
+    position: relative;
     overflow: hidden;
+  }
+
+  .home-fullscreen-toggle {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 20;
   }
 
   .main-display-padding {
@@ -175,6 +217,32 @@ export default {
         border-radius: 999px;
         background: linear-gradient(180deg, #8dc3ff 0%, #5da8ff 100%);
       }
+    }
+  }
+
+  &.is-page-fullscreen {
+    .display-flex-main {
+      height: 100%;
+      padding: 0;
+      gap: 0;
+    }
+
+    .main-display {
+      border-radius: 0;
+    }
+
+    .home-view-page {
+      height: 100%;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .home-fullscreen-toggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 4000;
     }
   }
 }

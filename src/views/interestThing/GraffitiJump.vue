@@ -2,6 +2,13 @@
 	<section class="graffiti-jump-page home-view-page">
 		<div class="home-view-title">
 			<div class="page-title">涂鸦跳跃</div>
+			<div class="graffiti-jump-fullscreen-toggle">
+				<FullscreenToggle
+					v-model:fullscreen="pageFullscreen"
+					v-model:menu-visible="pageMenuVisible"
+					fixed
+				/>
+			</div>
 		</div>
 
 		<div class="game-shell">
@@ -70,17 +77,21 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import FullscreenToggle from '@/components/FullscreenToggle.vue'
 
 const canvasRef = ref(null)
 const store = useStore()
+const homeLayoutControls = inject('homeLayoutControls', null)
 const isMobile = computed(() => store.state.isMobile)
 const score = ref(0)
 const highScore = ref(0)
 const gameStarted = ref(false)
 const isGameOver = ref(false)
 const maxClimbDistance = ref(0)
+const pageFullscreen = ref(false)
+const pageMenuVisible = ref(true)
 
 const STORAGE_KEY = 'graffiti-jump-high-score'
 const LAST_SCORE_STORAGE_KEY = 'graffiti-jump-last-score'
@@ -133,6 +144,22 @@ const platforms = []
 const stars = []
 
 const showOverlay = computed(() => !gameStarted.value || isGameOver.value)
+
+watch(
+	() => pageFullscreen.value,
+	(value) => {
+		homeLayoutControls?.setFullscreen?.(value)
+	},
+	{ immediate: true }
+)
+
+watch(
+	() => pageMenuVisible.value,
+	(value) => {
+		homeLayoutControls?.setMenuVisible?.(value)
+	},
+	{ immediate: true }
+)
 
 function randomBetween(min, max) {
 	return Math.random() * (max - min) + min
@@ -616,6 +643,11 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+	pageFullscreen.value = false
+	pageMenuVisible.value = true
+	homeLayoutControls?.setFullscreen?.(false)
+	homeLayoutControls?.setMenuVisible?.(true)
+
 	if (animationFrameId) {
 		window.cancelAnimationFrame(animationFrameId)
 		animationFrameId = 0
@@ -643,6 +675,7 @@ onBeforeUnmount(() => {
 		linear-gradient(180deg, #fbf8e8 0%, #eef5d8 48%, #dceec6 100%);
 
 	.home-view-title {
+		position: relative;
 		height: 68px;
 		border-bottom: 1px solid rgba(74, 98, 55, 0.14);
 		background:
@@ -669,6 +702,13 @@ onBeforeUnmount(() => {
 				0 0 0 3px rgba(156, 224, 77, 0.16),
 				0 8px 18px rgba(74, 98, 55, 0.16);
 		}
+	}
+
+	.graffiti-jump-fullscreen-toggle {
+		position: absolute;
+		top: 12px;
+		right: 18px;
+		z-index: 6;
 	}
 }
 
@@ -887,6 +927,11 @@ onBeforeUnmount(() => {
 @media (max-width: 900px) {
 	.graffiti-jump-page.home-view-page {
 		padding: 0;
+
+		.graffiti-jump-fullscreen-toggle {
+			top: calc(env(safe-area-inset-top, 0px) + 10px);
+			right: 12px;
+		}
 	}
 
 	.game-toolbar {

@@ -1,5 +1,13 @@
 <template>
   <div class="dont-hit-the-spikes">
+    <div class="dont-hit-fullscreen-toggle">
+      <FullscreenToggle
+        v-model:fullscreen="pageFullscreen"
+        v-model:menu-visible="pageMenuVisible"
+        fixed
+      />
+    </div>
+
     <div class="three-loading" :class="{ 'is-hidden': !isLoading }">
       <div class="three-loading-spinner"></div>
       <p>正在初始化躲避尖刺...</p>
@@ -88,16 +96,18 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
 import { isApiSuccess } from '@/common/requests/requests.js'
 import { DailyTimeFormat } from '@/utils/utils.js'
 import { gameScoreCreateReq } from '@/apis/gameScoreApis.js'
+import FullscreenToggle from '@/components/FullscreenToggle.vue'
 import LeaderboardDialog from '@/views/three/components/LeaderboardDialog.vue'
 import { createDontHitTheSpikeRuntime } from '@/views/three/utils/dontHitTheSpikeRuntime.js'
 
 const store = useStore()
+const homeLayoutControls = inject('homeLayoutControls', null)
 const mountEl = ref(null)
 const score = ref(0)
 const lastScore = ref(0)
@@ -114,6 +124,8 @@ const reactionSpeed = ref(0)
 const spikeDensity = ref(0)
 const currentTheme = ref('neon')
 const isMobile = computed(() => store.state.isMobile)
+const pageFullscreen = ref(false)
+const pageMenuVisible = ref(true)
 
 const recordBtnText = computed(() => {
   if (scoreRecorded.value) return '已记录'
@@ -253,7 +265,27 @@ watch(
   }
 )
 
+watch(
+  () => pageFullscreen.value,
+  (value) => {
+    homeLayoutControls?.setFullscreen?.(value)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => pageMenuVisible.value,
+  (value) => {
+    homeLayoutControls?.setMenuVisible?.(value)
+  },
+  { immediate: true }
+)
+
 onUnmounted(() => {
+  pageFullscreen.value = false
+  pageMenuVisible.value = true
+  homeLayoutControls?.setFullscreen?.(false)
+  homeLayoutControls?.setMenuVisible?.(true)
   layoutObserver?.disconnect?.()
   layoutObserver = null
   gameRuntime?.destroy()
@@ -272,6 +304,13 @@ onUnmounted(() => {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+
+  .dont-hit-fullscreen-toggle {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 5.4rem);
+    right: 16px;
+    z-index: 50;
+  }
 
   #dont-hit {
     width: 100%;
@@ -513,6 +552,11 @@ onUnmounted(() => {
 }
 
 @media (min-width: 769px) {
+  .dont-hit-the-spikes .dont-hit-fullscreen-toggle {
+    top: 5.4rem;
+    right: 20px;
+  }
+
   .dont-hit-the-spikes .dont-hit-remind .touch-controls {
     display: none;
   }
@@ -544,6 +588,11 @@ onUnmounted(() => {
       padding: 0.48rem 0.75rem;
       font-size: 0.84rem;
     }
+  }
+
+  .dont-hit-the-spikes .dont-hit-fullscreen-toggle {
+    top: calc(env(safe-area-inset-top, 0px) + 4.8rem);
+    right: 12px;
   }
 }
 

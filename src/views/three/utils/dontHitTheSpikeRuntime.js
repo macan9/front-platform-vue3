@@ -203,6 +203,9 @@ function createSceneRuntime({ mountEl, player, playerRadius, ceilingY, lightY, l
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
   const cameraOffset = new THREE.Vector3(0, 8, 18);
   const cameraLookOffset = new THREE.Vector3(0, 5, 0);
+  const cameraFollowDamping = 7.5;
+  const cameraLookDamping = 10;
+  const cameraLeadStrength = 0.18;
   const cameraRig = new THREE.Group();
   cameraRig.add(camera);
   camera.position.set(0, 0, 0);
@@ -375,7 +378,11 @@ function createSceneRuntime({ mountEl, player, playerRadius, ceilingY, lightY, l
   const zAxis = new THREE.Vector3(0, 0, 1);
   const tmpPlayerWorldPos = new THREE.Vector3();
   const tmpDesiredCamPos = new THREE.Vector3();
+  const tmpDesiredFocus = new THREE.Vector3();
   const tmpLookAtPos = new THREE.Vector3();
+  const tmpDesiredLookAt = new THREE.Vector3();
+  const cameraFocus = player.pos.clone();
+  const cameraLookTarget = player.pos.clone().add(cameraLookOffset);
   const levelAabb = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
   const computeLevelAabb = (angleRad) => {
@@ -420,18 +427,42 @@ function createSceneRuntime({ mountEl, player, playerRadius, ceilingY, lightY, l
     floorProjectionMesh.position.set(player.pos.x, levelMinY + 0.26, player.pos.z);
     ceilingProjectionMesh.position.set(player.pos.x, ceilingY - 0.26, player.pos.z);
     playerMesh.getWorldPosition(tmpPlayerWorldPos);
-    tmpDesiredCamPos.copy(tmpPlayerWorldPos).add(cameraOffset);
+    tmpDesiredFocus.copy(tmpPlayerWorldPos);
+    tmpDesiredFocus.x += (player.wantX - player.pos.x) * cameraLeadStrength;
 
     computeLevelAabb(flipAngle);
-    const camMinX = levelAabb.minX + cameraBoundsPadding;
-    const camMaxX = levelAabb.maxX - cameraBoundsPadding;
-    const camMinY = levelAabb.minY + cameraBoundsPadding;
-    const camMaxY = levelAabb.maxY - cameraBoundsPadding;
-    if (camMinX < camMaxX) tmpDesiredCamPos.x = THREE.MathUtils.clamp(tmpDesiredCamPos.x, camMinX, camMaxX);
-    if (camMinY < camMaxY) tmpDesiredCamPos.y = THREE.MathUtils.clamp(tmpDesiredCamPos.y, camMinY, camMaxY);
+    const focusDistance = cameraOffset.length();
+    const halfVerticalView = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * focusDistance;
+    const halfHorizontalView = halfVerticalView * camera.aspect;
+    const focusMinX = levelAabb.minX + halfHorizontalView + cameraBoundsPadding;
+    const focusMaxX = levelAabb.maxX - halfHorizontalView - cameraBoundsPadding;
+    const focusMinY = levelAabb.minY + halfVerticalView + cameraBoundsPadding;
+    const focusMaxY = levelAabb.maxY - halfVerticalView - cameraBoundsPadding;
 
-    cameraRig.position.lerp(tmpDesiredCamPos, 1 - Math.pow(0.001, dt));
-    tmpLookAtPos.copy(tmpPlayerWorldPos).add(cameraLookOffset);
+    if (focusMinX < focusMaxX) {
+      tmpDesiredFocus.x = THREE.MathUtils.clamp(tmpDesiredFocus.x, focusMinX, focusMaxX);
+    } else {
+      tmpDesiredFocus.x = (levelAabb.minX + levelAabb.maxX) * 0.5;
+    }
+
+    if (focusMinY < focusMaxY) {
+      tmpDesiredFocus.y = THREE.MathUtils.clamp(tmpDesiredFocus.y, focusMinY, focusMaxY);
+    } else {
+      tmpDesiredFocus.y = (levelAabb.minY + levelAabb.maxY) * 0.5;
+    }
+
+    cameraFocus.x = THREE.MathUtils.damp(cameraFocus.x, tmpDesiredFocus.x, cameraFollowDamping, dt);
+    cameraFocus.y = THREE.MathUtils.damp(cameraFocus.y, tmpDesiredFocus.y, cameraFollowDamping, dt);
+    cameraFocus.z = THREE.MathUtils.damp(cameraFocus.z, tmpDesiredFocus.z, cameraFollowDamping, dt);
+
+    tmpDesiredCamPos.copy(cameraFocus).add(cameraOffset);
+    cameraRig.position.copy(tmpDesiredCamPos);
+
+    tmpDesiredLookAt.copy(tmpPlayerWorldPos).add(cameraLookOffset);
+    cameraLookTarget.x = THREE.MathUtils.damp(cameraLookTarget.x, tmpDesiredLookAt.x, cameraLookDamping, dt);
+    cameraLookTarget.y = THREE.MathUtils.damp(cameraLookTarget.y, tmpDesiredLookAt.y, cameraLookDamping, dt);
+    cameraLookTarget.z = THREE.MathUtils.damp(cameraLookTarget.z, tmpDesiredLookAt.z, cameraLookDamping, dt);
+    tmpLookAtPos.copy(cameraLookTarget);
     camera.lookAt(tmpLookAtPos);
   };
 
@@ -486,6 +517,12 @@ function createSceneRuntime({ mountEl, player, playerRadius, ceilingY, lightY, l
     setTheme,
     resize,
     updateCamera,
+    syncCamera(position, lookAt) {
+      cameraFocus.copy(position);
+      cameraLookTarget.copy(lookAt);
+      cameraRig.position.copy(position.clone().add(cameraOffset));
+      camera.lookAt(lookAt);
+    },
     dispose,
   };
 }
@@ -619,6 +656,7 @@ export function createDontHitTheSpikeRuntime(state) {
     flipVisual.t = 0;
     sceneRuntime.worldPivot.rotation.z = 0;
     sceneRuntime.playerMesh.position.copy(player.pos);
+    sceneRuntime.syncCamera(player.pos, player.pos.clone().add(new THREE.Vector3(0, 5, 0)));
     sceneRuntime.updateCamera(0, 0.016);
     gsap.killTweensOf(cones.map((cone) => cone.position));
     resetConeField(rows, recycleState, {

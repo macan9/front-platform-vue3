@@ -15,7 +15,7 @@
 								<div class="brand-mark">G</div>
 								<div>
 									<p class="brand-title">梦幻扭蛋机</p>
-									<p class="brand-subtitle">扭一下，掉一颗梦幻胶囊</p>
+									<p class="brand-subtitle">转一下，把惊喜装进口袋里</p>
 								</div>
 							</div>
 
@@ -50,8 +50,6 @@
 											'--ball-x': `${ball.x}px`,
 											'--ball-y': `${ball.y}px`,
 											'--ball-size': `${ball.size}px`,
-											'--ball-a': ball.colors[0],
-											'--ball-b': ball.colors[1],
 											'--ball-delay': `${ball.delay}s`,
 											'--ball-z': ball.zIndex,
 											'--ball-opacity': ball.opacity,
@@ -111,37 +109,57 @@
 							</div>
 						</div>
 
-						<div ref="panelRef" class="result-panel">
-							<div class="panel-head">
-								<p class="panel-kicker">Collection</p>
-								<h2>本次战利品</h2>
-							</div>
+						<div ref="panelRef" class="side-panel">
+							<div class="my-gashapon-panel">
+								<div class="panel-head">
+									<p class="panel-kicker">My Collection</p>
+									<h2>我的扭蛋</h2>
+								</div>
 
-							<div class="result-card" :class="{ active: openedPrize }" :style="panelStyle">
-								<template v-if="openedPrize">
-									<div ref="shineRef" class="result-shine" />
-									<div class="result-icon">{{ openedPrize.icon }}</div>
-									<h3>{{ openedPrize.name }}</h3>
-									<p class="result-desc">{{ openedPrize.description }}</p>
-									<div class="result-tags">
-										<span>色系 {{ openedPrize.theme }}</span>
-										<span>序号 {{ openedPrize.id.toString().padStart(2, '0') }}</span>
+								<div class="collection-card">
+									<div class="collection-summary">
+										<div class="collection-stat">
+											<span class="collection-stat-label">总数</span>
+											<strong>{{ collectionSummary.total }}</strong>
+										</div>
+										<div class="collection-stat">
+											<span class="collection-stat-label">最新入袋</span>
+											<strong>{{ collectionSummary.latestName }}</strong>
+										</div>
 									</div>
-								</template>
-								<template v-else>
-									<div class="placeholder-icon">?</div>
-									<h3>等待开箱</h3>
-									<p class="result-desc">先摇动把手，等胶囊落下后再点击它打开奖励。</p>
-								</template>
+
+									<div v-if="ownedPrizes.length" class="collection-grid">
+										<div
+											v-for="item in ownedPrizes"
+											:key="item.collectionId"
+											class="collection-item"
+											:style="{ '--collection-color': item.color }"
+										>
+											<span class="collection-item-icon">{{ item.icon }}</span>
+											<div class="collection-item-content">
+												<p class="collection-item-name">{{ item.name }}</p>
+												<p class="collection-item-meta">
+													{{ item.rarity }} · 编号 {{ item.id.toString().padStart(2, '0') }}
+												</p>
+											</div>
+										</div>
+									</div>
+									<div v-else class="collection-empty">
+										<div class="placeholder-icon">?</div>
+										<h3>暂无扭蛋</h3>
+										<p class="result-desc">转动把手后，新的扭蛋会出现在这里，后续也可以直接接后台返回数据。</p>
+									</div>
+								</div>
 							</div>
 
-							<div class="history-entry">
-								<button type="button" class="history-open-button" @click="showHistoryDialog = true">
-									查看最近掉落
+							<div class="record-panel">
+								<button type="button" class="text-action-button" @click="showHistoryDialog = true">
+									扭蛋记录
 								</button>
-								<p class="history-entry-tip">
-									{{ history.length ? `当前已记录 ${history.length} 条掉落` : '还没有记录，先摇一颗。' }}
-								</p>
+								<button type="button" class="text-action-button" @click="showTradeDialog = true">
+									交易记录
+								</button>
+								<p class="history-entry-tip">{{ historyEntryTip }}</p>
 							</div>
 						</div>
 					</div>
@@ -149,7 +167,28 @@
 			</div>
 		</div>
 
-		<el-dialog v-model="showHistoryDialog" title="最近掉落" width="560px" append-to-body style="margin-top: 12%;">
+		<el-dialog
+			v-model="showResultDialog"
+			title="本次扭蛋结果"
+			width="420px"
+			append-to-body
+			class="result-dialog"
+		>
+			<div class="result-card result-dialog-card" :class="{ active: openedPrize }" :style="panelStyle">
+				<template v-if="openedPrize">
+					<div ref="shineRef" class="result-shine" />
+					<div class="result-icon">{{ openedPrize.icon }}</div>
+					<h3>{{ openedPrize.name }}</h3>
+					<p class="result-desc">{{ openedPrize.description }}</p>
+					<div class="result-tags">
+						<span>主题 {{ openedPrize.theme }}</span>
+						<span>编号 {{ openedPrize.id.toString().padStart(2, '0') }}</span>
+					</div>
+				</template>
+			</div>
+		</el-dialog>
+
+		<el-dialog v-model="showHistoryDialog" title="扭蛋记录" width="560px" append-to-body style="margin-top: 12%;">
 			<div class="history-dialog-body">
 				<div v-if="history.length" class="history-summary">
 					<div class="history-summary-card">
@@ -189,12 +228,53 @@
 							<p class="history-desc">{{ entry.description }}</p>
 							<div class="history-tags">
 								<span>主题 {{ entry.theme }}</span>
-								<span>色彩 {{ entry.color }}</span>
+								<span>颜色 {{ entry.color }}</span>
 							</div>
 						</div>
 					</div>
 				</div>
-				<p v-else class="history-empty">还没有记录，先摇一颗。</p>
+				<p v-else class="history-empty">还没有扭蛋记录，先摇一颗试试。</p>
+			</div>
+		</el-dialog>
+
+		<el-dialog v-model="showTradeDialog" title="交易记录" width="560px" append-to-body style="margin-top: 12%;">
+			<div class="history-dialog-body">
+				<div class="history-summary">
+					<div class="history-summary-card">
+						<span class="history-summary-label">记录数</span>
+						<strong>{{ tradeSummary.total }}</strong>
+					</div>
+					<div class="history-summary-card">
+						<span class="history-summary-label">最近类型</span>
+						<strong>{{ tradeSummary.latestType }}</strong>
+					</div>
+					<div class="history-summary-card accent">
+						<span class="history-summary-label">最近状态</span>
+						<strong>{{ tradeSummary.latestStatus }}</strong>
+					</div>
+				</div>
+
+				<div v-if="tradeRecords.length" class="history-list">
+					<div
+						v-for="record in tradeRecords"
+						:key="record.tradeId"
+						class="history-item trade-item"
+						:style="{ '--history-color': record.color || '#ffb45f' }"
+					>
+						<span class="history-icon">{{ record.icon || '↔' }}</span>
+						<div class="history-content">
+							<div class="history-main">
+								<div>
+									<p class="history-name">{{ record.title }}</p>
+									<p class="history-meta">{{ record.type }} · {{ record.status }}</p>
+								</div>
+								<span class="history-time">{{ formatHistoryTime(record.createdAt) }}</span>
+							</div>
+							<p class="history-desc">{{ record.description }}</p>
+						</div>
+					</div>
+				</div>
+				<p v-else class="history-empty">暂无交易记录，后续可直接接入后台接口。</p>
 			</div>
 		</el-dialog>
 	</section>
@@ -223,17 +303,21 @@ const isRolling = ref(false)
 const canOpenCapsule = ref(false)
 const dispensedPrize = ref(null)
 const openedPrize = ref(null)
-const history = ref([])
+const showResultDialog = ref(false)
 const showHistoryDialog = ref(false)
+const showTradeDialog = ref(false)
+const history = ref([])
+const ownedPrizes = ref([])
+const tradeRecords = ref([])
 const machineBalls = ref([])
 
 const prizes = [
-	{ id: 1, name: '霓虹猫咪', icon: '🐈', description: '一只会在夜里发光的电子猫，尾巴像霓虹灯一样晃来晃去。', rarity: 'Rare', theme: '霓虹粉', color: '#ff6fa9', weight: 2 },
-	{ id: 2, name: '海盐水母', icon: '🪼', description: '带着微弱海蓝光晕的漂浮水母，摇一摇会闪出冷光粒子。', rarity: 'Epic', theme: '海洋蓝', color: '#57c7ff', weight: 1 },
-	{ id: 3, name: '黄油吐司', icon: '🍞', description: '柔软到离谱的一片吐司摆件，看着就像刚从烤箱里拿出来。', rarity: 'Common', theme: '奶油黄', color: '#ffbf47', weight: 4 },
-	{ id: 4, name: '流星唱片', icon: '💿', description: '透明唱片里封着一颗流星，转动时能看到银色拖尾。', rarity: 'Rare', theme: '银辉灰', color: '#8d9eff', weight: 2 },
-	{ id: 5, name: '草莓火箭', icon: '🚀', description: '粉色小火箭胶囊玩具，发射不了，但足够可爱。', rarity: 'Super Rare', theme: '莓果红', color: '#ff7c6b', weight: 1 },
-	{ id: 6, name: '四叶云朵', icon: '☁️', description: '软绵绵的小云会飘在桌角，像把好运压缩成了一团。', rarity: 'Common', theme: '薄雾绿', color: '#7ad9a7', weight: 4 },
+	{ id: 1, name: '霓虹猫爪', icon: '🐾', description: '会在夜里发光的电子猫爪，尾灯会像流萤一样闪。', rarity: 'Rare', theme: '霓虹精灵', color: '#ff6fa9', weight: 2 },
+	{ id: 2, name: '海盐水母', icon: '🪼', description: '带着微光海蓝的漂浮水母，晃一晃会洒出冷光粒子。', rarity: 'Epic', theme: '海洋蓝调', color: '#57c7ff', weight: 1 },
+	{ id: 3, name: '黄油吐司', icon: '🍞', description: '软乎乎的一片吐司摆件，看起来像刚从烤箱出来。', rarity: 'Common', theme: '奶油黄昏', color: '#ffbf47', weight: 4 },
+	{ id: 4, name: '流星唱片', icon: '📀', description: '透明唱片里封着一颗流星，转动时会看到银色拖尾。', rarity: 'Rare', theme: '银河漫游', color: '#8d9eff', weight: 2 },
+	{ id: 5, name: '草莓火箭', icon: '🚀', description: '粉色小火箭胶囊玩具，虽然飞不走，但足够可爱。', rarity: 'Super Rare', theme: '莓果航线', color: '#ff7c6b', weight: 1 },
+	{ id: 6, name: '四叶云朵', icon: '☁️', description: '软绵绵的小云朵挂件，像把好运压缩成了一团。', rarity: 'Common', theme: '薄雾花园', color: '#7ad9a7', weight: 4 },
 ]
 
 const machineBallRows = [
@@ -253,6 +337,10 @@ const machineBallPalette = [
 ]
 
 let bowlResizeObserver = null
+let introTimeline = null
+let bowlFloatTween = null
+let currentRollTimeline = null
+let shineTween = null
 
 const pickRandomBallPalette = (previousIndex = -1) => {
 	if (machineBallPalette.length === 1) {
@@ -322,7 +410,6 @@ const buildMachineBalls = () => {
 				x,
 				y: ballY,
 				size: ballSize + (edgeBias ? 1 : 0),
-				colors: [paletteItem.shell, paletteItem.core],
 				delay: Number((Math.random() * 1.8).toFixed(2)),
 				zIndex: 20 + rowIndex * 20 + Math.round(centerWeight * 14) + zJitter,
 				opacity: Number((0.86 + depth * 0.08).toFixed(2)),
@@ -350,6 +437,25 @@ const panelStyle = computed(() => ({
 	'--result-color': openedPrize.value?.color || '#6b7a90',
 }))
 
+const collectionSummary = computed(() => ({
+	total: ownedPrizes.value.length,
+	latestName: ownedPrizes.value[0]?.name || '--',
+}))
+
+const tradeSummary = computed(() => ({
+	total: tradeRecords.value.length,
+	latestType: tradeRecords.value[0]?.type || '--',
+	latestStatus: tradeRecords.value[0]?.status || '--',
+}))
+
+const historyEntryTip = computed(() => {
+	if (!history.value.length && !tradeRecords.value.length) {
+		return '当前展示的是预留数据结构，后续可直接替换成后台接口返回值。'
+	}
+
+	return `当前已记录 ${history.value.length} 条扭蛋记录，${tradeRecords.value.length} 条交易记录。`
+})
+
 const formatHistoryTime = (value) => {
 	if (!value) return '--:--'
 	const date = new Date(value)
@@ -357,11 +463,6 @@ const formatHistoryTime = (value) => {
 	const mm = `${date.getMinutes()}`.padStart(2, '0')
 	return `${hh}:${mm}`
 }
-
-let introTimeline = null
-let bowlFloatTween = null
-let currentRollTimeline = null
-let shineTween = null
 
 const tweenTo = (target, vars) =>
 	new Promise((resolve) => {
@@ -375,6 +476,30 @@ const tweenTo = (target, vars) =>
 	})
 
 const pickPrize = () => weightedPool[Math.floor(Math.random() * weightedPool.length)]
+
+// 预留数据接入层：后续替换为后台接口时，优先改这几个方法即可。
+const requestRollPrize = async () => pickPrize()
+const setOwnedPrizes = (records = []) => {
+	ownedPrizes.value = records
+}
+const setHistoryRecords = (records = []) => {
+	history.value = records
+}
+const setTradeRecords = (records = []) => {
+	tradeRecords.value = records
+}
+
+const createCollectionItem = (prize) => ({
+	...prize,
+	collectionId: `${prize.id}-${Date.now()}`,
+	obtainedAt: Date.now(),
+})
+
+const createHistoryItem = (prize) => ({
+	...prize,
+	historyId: `${prize.id}-${Date.now()}`,
+	droppedAt: Date.now(),
+})
 
 const startShineLoop = () => {
 	if (!shineRef.value) return
@@ -414,11 +539,12 @@ const rollCapsule = async () => {
 	isRolling.value = true
 	canOpenCapsule.value = false
 	openedPrize.value = null
+	showResultDialog.value = false
 	dispensedPrize.value = null
 	currentRollTimeline?.kill()
 	shineTween?.kill()
 
-	const nextPrize = pickPrize()
+	const nextPrize = await requestRollPrize()
 	await nextTick()
 
 	currentRollTimeline = gsap.timeline({
@@ -481,7 +607,9 @@ const openCapsule = async () => {
 
 	dispensedPrize.value = null
 	openedPrize.value = targetPrize
-	history.value = [{ ...targetPrize, historyId: `${targetPrize.id}-${Date.now()}`, droppedAt: Date.now() }, ...history.value].slice(0, 6)
+	showResultDialog.value = true
+	setOwnedPrizes([createCollectionItem(targetPrize), ...ownedPrizes.value].slice(0, 6))
+	setHistoryRecords([createHistoryItem(targetPrize), ...history.value].slice(0, 6))
 
 	await nextTick()
 
@@ -491,17 +619,20 @@ const openCapsule = async () => {
 }
 
 const clearHistory = () => {
-	history.value = []
+	setHistoryRecords([])
 }
 
 onMounted(() => {
 	buildMachineBalls()
+	setTradeRecords([])
+
 	if (typeof ResizeObserver !== 'undefined' && bowlRef.value) {
 		bowlResizeObserver = new ResizeObserver(() => {
 			buildMachineBalls()
 		})
 		bowlResizeObserver.observe(bowlRef.value)
 	}
+
 	playIntro()
 })
 
@@ -715,16 +846,16 @@ onBeforeUnmount(() => {
 .machine-main {
 	display: grid;
 	grid-template-columns: minmax(0, 660px) minmax(280px, 360px);
-	// flex: 1;
 	min-height: 0;
 	height: calc(100% - 206px);
-	gap: 58px;
-	align-items: start;
+	gap: 42px;
+	align-items: stretch;
 }
 
 .machine-body {
 	position: relative;
 	width: min(100%, 520px);
+	height: 100%;
 	margin: 0 auto;
 	padding: 18px 18px 20px;
 	border-radius: 30px;
@@ -1078,17 +1209,29 @@ onBeforeUnmount(() => {
 	font-size: 21px;
 }
 
-.result-panel {
+.side-panel {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+	gap: 18px;
+	min-height: 0;
+	height: 100%;
+}
+
+.my-gashapon-panel,
+.record-panel {
 	display: flex;
 	flex-direction: column;
-	min-height: 0;
-	gap: 18px;
+	gap: 16px;
 	padding: 24px;
 	border-radius: 34px;
 	background: rgba(255, 248, 238, 0.7);
 	backdrop-filter: blur(14px);
 	border: 1px solid rgba(255, 255, 255, 0.46);
 	box-shadow: 0 30px 64px rgba(125, 60, 21, 0.16);
+}
+
+.my-gashapon-panel {
+	min-height: 0;
 }
 
 .panel-kicker {
@@ -1102,6 +1245,139 @@ onBeforeUnmount(() => {
 	margin-top: 8px;
 	color: #642807;
 	font-size: 30px;
+}
+
+.collection-card {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	flex: 1;
+	min-height: 0;
+	padding: 20px;
+	border-radius: 28px;
+	background:
+		radial-gradient(circle at top, rgba(255, 255, 255, 0.75), transparent 36%),
+		linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 247, 240, 0.94));
+	border: 1px solid rgba(106, 57, 18, 0.08);
+	box-shadow: inset 0 -14px 20px rgba(166, 95, 44, 0.08);
+	color: #603112;
+	overflow: hidden;
+}
+
+.collection-summary {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.collection-stat {
+	display: grid;
+	gap: 6px;
+	padding: 14px 16px;
+	border-radius: 20px;
+	background: rgba(255, 255, 255, 0.76);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.collection-stat-label {
+	font-size: 12px;
+	color: rgba(103, 48, 16, 0.68);
+}
+
+.collection-stat strong {
+	font-size: 24px;
+	color: #673010;
+}
+
+.collection-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 10px;
+	flex: 1;
+	min-height: 0;
+	padding-right: 4px;
+	overflow-y: auto;
+}
+
+.collection-grid::-webkit-scrollbar {
+	width: 8px;
+}
+
+.collection-grid::-webkit-scrollbar-track {
+	background: rgba(255, 240, 229, 0.72);
+	border-radius: 999px;
+}
+
+.collection-grid::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: linear-gradient(180deg, rgba(225, 123, 68, 0.95), rgba(171, 77, 30, 0.95));
+}
+
+.collection-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px;
+	border-radius: 18px;
+	background: rgba(255, 255, 255, 0.74);
+	border: 1px solid rgba(255, 255, 255, 0.78);
+	box-shadow: 0 10px 20px rgba(130, 67, 27, 0.08);
+}
+
+.collection-item-icon {
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--collection-color) 20%, white);
+	font-size: 24px;
+}
+
+.collection-item-content {
+	min-width: 0;
+}
+
+.collection-item-name {
+	font-size: 15px;
+	font-weight: 700;
+	color: #673010;
+}
+
+.collection-item-meta {
+	margin-top: 4px;
+	font-size: 12px;
+	color: rgba(103, 48, 16, 0.68);
+}
+
+.collection-empty {
+	display: grid;
+	place-items: center;
+	align-content: center;
+	flex: 1;
+	min-height: 220px;
+	text-align: center;
+}
+
+.record-panel {
+	justify-content: center;
+	min-height: 154px;
+}
+
+.text-action-button {
+	padding: 4px 0;
+	border: 0;
+	background: transparent;
+	color: #8b471d;
+	font-size: 18px;
+	font-weight: 700;
+	line-height: 1.5;
+	text-align: left;
+	cursor: pointer;
+}
+
+.text-action-button:hover {
+	color: #c85c28;
 }
 
 .result-card {
@@ -1124,6 +1400,10 @@ onBeforeUnmount(() => {
 		linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 247, 240, 0.96));
 }
 
+.result-dialog-card {
+	min-height: 0;
+}
+
 .result-shine {
 	position: absolute;
 	left: 50%;
@@ -1138,8 +1418,6 @@ onBeforeUnmount(() => {
 	opacity: 0.7;
 	pointer-events: none;
 }
-
-
 
 .result-icon,
 .placeholder-icon {
@@ -1156,7 +1434,8 @@ onBeforeUnmount(() => {
 	box-shadow: 0 18px 30px rgba(125, 60, 21, 0.08);
 }
 
-.result-card h3 {
+.result-card h3,
+.collection-empty h3 {
 	position: relative;
 	z-index: 1;
 	text-align: center;
@@ -1190,28 +1469,10 @@ onBeforeUnmount(() => {
 	color: #7a4218;
 }
 
-.history-entry {
-	display: grid;
-	gap: 10px;
-}
-
-.history-open-button {
-	width: 100%;
-	border: 0;
-	border-radius: 18px;
-	padding: 14px 16px;
-	background: linear-gradient(135deg, #ffb45f, #ef6f30);
-	color: #fff9f1;
-	font-size: 15px;
-	font-weight: 700;
-	cursor: pointer;
-	box-shadow: 0 18px 28px rgba(187, 91, 30, 0.18);
-}
-
 .history-entry-tip {
 	font-size: 13px;
+	line-height: 1.6;
 	color: rgba(103, 48, 16, 0.7);
-	text-align: center;
 }
 
 .history-dialog-body {
@@ -1302,6 +1563,10 @@ onBeforeUnmount(() => {
 	background: rgba(255, 255, 255, 0.74);
 	border: 1px solid rgba(255, 255, 255, 0.78);
 	box-shadow: 0 10px 20px rgba(130, 67, 27, 0.08);
+}
+
+.trade-item {
+	align-items: center;
 }
 
 .history-icon {
@@ -1415,7 +1680,23 @@ onBeforeUnmount(() => {
 	}
 
 	.machine-main {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1.18fr) minmax(220px, 0.82fr);
+		gap: 18px;
+		height: auto;
+	}
+
+	.my-gashapon-panel,
+	.record-panel {
+		padding: 18px;
+		border-radius: 28px;
+	}
+
+	.panel-head h2 {
+		font-size: 24px;
+	}
+
+	.collection-card {
+		padding: 16px;
 	}
 }
 
@@ -1426,18 +1707,91 @@ onBeforeUnmount(() => {
 		padding-bottom: 24px;
 	}
 
+	.machine-main {
+		grid-template-columns: minmax(0, 1.1fr) minmax(132px, 0.9fr);
+		gap: 12px;
+		align-items: stretch;
+	}
+
 	.machine-body {
 		width: 100%;
-		padding: 16px 16px 20px;
+		padding: 14px 14px 18px;
 		border-radius: 28px;
 	}
 
 	.machine-window {
-		height: 320px;
+		height: 260px;
 	}
 
-	.result-panel {
-		padding: 18px;
+	.control-area {
+		gap: 10px;
+	}
+
+	.coin-slot {
+		width: 78px;
+		height: 68px;
+	}
+
+	.handle-button {
+		width: 92px;
+	}
+
+	.my-gashapon-panel,
+	.record-panel {
+		padding: 14px;
+		border-radius: 24px;
+	}
+
+	.collection-card {
+		padding: 12px;
+		border-radius: 22px;
+	}
+
+	.collection-summary {
+		grid-template-columns: 1fr;
+		gap: 8px;
+	}
+
+	.collection-stat {
+		padding: 10px 12px;
+	}
+
+	.collection-stat strong {
+		font-size: 20px;
+	}
+
+	.collection-empty {
+		min-height: 160px;
+	}
+
+	.result-icon,
+	.placeholder-icon {
+		width: 84px;
+		height: 84px;
+		margin: 16px auto 14px;
+		font-size: 42px;
+	}
+
+	.result-card h3,
+	.collection-empty h3 {
+		font-size: 22px;
+	}
+
+	.text-action-button {
+		font-size: 15px;
+	}
+
+	.history-entry-tip {
+		font-size: 12px;
+	}
+
+	.history-dialog-body {
+		height: 60vh;
+	}
+
+	.history-summary {
+		grid-template-columns: 1fr;
+		height: auto;
 	}
 }
 </style>
