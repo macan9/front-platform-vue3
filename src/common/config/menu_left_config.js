@@ -125,7 +125,7 @@ export const menu_left_config = [
         pid: '7',
         children: [
             {
-                label: '扭蛋机',
+                label: '梦幻扭蛋',
                 value: '7-3',
                 path: '/gashapon',
                 icon: 'GoodsFilled',

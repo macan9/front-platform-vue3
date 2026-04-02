@@ -431,11 +431,8 @@ function createSceneRuntime({ mountEl, player, playerRadius, ceilingY, lightY, l
     tmpDesiredFocus.x += (player.wantX - player.pos.x) * cameraLeadStrength;
 
     computeLevelAabb(flipAngle);
-    const focusDistance = cameraOffset.length();
-    const halfVerticalView = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * focusDistance;
-    const halfHorizontalView = halfVerticalView * camera.aspect;
-    const focusMinX = levelAabb.minX + halfHorizontalView + cameraBoundsPadding;
-    const focusMaxX = levelAabb.maxX - halfHorizontalView - cameraBoundsPadding;
+    const focusMinX = levelAabb.minX + cameraBoundsPadding;
+    const focusMaxX = levelAabb.maxX - cameraBoundsPadding;
 
     if (focusMinX < focusMaxX) {
       tmpDesiredFocus.x = THREE.MathUtils.clamp(tmpDesiredFocus.x, focusMinX, focusMaxX);

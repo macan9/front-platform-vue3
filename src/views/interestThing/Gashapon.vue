@@ -727,6 +727,7 @@ const rollCapsule = async () => {
 						canOpenCapsule.value = true
 						isRolling.value = false
 						gsap.fromTo(dispensedCapsuleRef.value, { y: 0 }, { y: -8, duration: 0.9, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+						setTimeout(() => openCapsule(), 800)
 					},
 				},
 			)
@@ -846,7 +847,7 @@ onBeforeUnmount(() => {
 	position: relative;
 	height: 100%;
 	box-sizing: border-box;
-	padding: 12px 0;
+	padding: 6px 0;
 	overflow-x: hidden;
 	overflow-y: auto;
 	scrollbar-width: thin;
@@ -914,8 +915,8 @@ onBeforeUnmount(() => {
 	z-index: 1;
 	width: min(1200px, calc(100% - 32px));
 	margin: 0 auto;
-	padding: 25px 0 10px;
-	min-height: calc(100% - 24px);
+	padding: 12px 0 6px;
+	min-height: calc(100% - 12px);
 	box-sizing: border-box;
 	display: flex;
 }
@@ -925,8 +926,8 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	flex: 1;
 	min-height: 0;
-	gap: 22px;
-	justify-content: space-around;
+	gap: 12px;
+	justify-content: flex-start;
 }
 
 .machine-shell {
@@ -940,8 +941,8 @@ onBeforeUnmount(() => {
 	display: grid;
 	grid-template-columns: max-content minmax(0, 1fr);
 	align-items: center;
-	gap: 18px;
-	padding: 0 22px;
+	gap: 14px;
+	padding: 0 18px;
 }
 
 .brand-panel {
@@ -954,25 +955,25 @@ onBeforeUnmount(() => {
 .brand-mark {
 	display: grid;
 	place-items: center;
-	width: 48px;
-	height: 48px;
-	border-radius: 16px;
+	width: 44px;
+	height: 44px;
+	border-radius: 14px;
 	background: linear-gradient(180deg, #ffedb1, #ffb74a);
 	color: #7c3404;
-	font-size: 28px;
+	font-size: 24px;
 	font-weight: 800;
 	box-shadow: inset 0 -6px 14px rgba(183, 96, 18, 0.18);
 }
 
 .brand-title {
-	font-size: 26px;
+	font-size: 24px;
 	font-weight: 800;
 	color: #68280a;
 }
 
 .brand-subtitle {
-	margin-top: 4px;
-	font-size: 13px;
+	margin-top: 2px;
+	font-size: 12px;
 	color: rgba(104, 40, 10, 0.68);
 }
 
@@ -1010,12 +1011,12 @@ onBeforeUnmount(() => {
 	flex: 0 0 auto;
 	align-items: center;
 	gap: 8px;
-	padding: 8px 12px;
+	padding: 6px 10px;
 	border-radius: 999px;
 	border: 1px solid rgba(124, 52, 4, 0.12);
 	background: rgba(255, 249, 239, 0.85);
 	color: #6f3210;
-	font-size: 13px;
+	font-size: 12px;
 	box-shadow: 0 12px 24px rgba(157, 78, 29, 0.08);
 }
 
@@ -1031,10 +1032,10 @@ onBeforeUnmount(() => {
 
 .machine-main {
 	display: grid;
-	grid-template-columns: minmax(0, 660px) minmax(280px, 360px);
+	grid-template-columns: minmax(280px, 1.2fr) minmax(240px, 0.8fr);
 	min-height: 0;
-	height: calc(100% - 206px);
-	gap: 42px;
+	height: min(100%, calc(100dvh - 150px));
+	gap: min(30px, 2.8vw);
 	align-items: stretch;
 }
 
@@ -1043,8 +1044,8 @@ onBeforeUnmount(() => {
 	width: min(100%, 520px);
 	height: 100%;
 	margin: 0 auto;
-	padding: 18px 18px 20px;
-	border-radius: 30px;
+	padding: 14px 14px 16px;
+	border-radius: 28px;
 	background: linear-gradient(180deg, #ff6b3d 0%, #ec512a 48%, #c73314 100%);
 	box-shadow:
 		0 30px 70px rgba(144, 55, 20, 0.28),
@@ -1056,7 +1057,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	justify-content: center;
 	gap: 12px;
-	margin-bottom: 12px;
+	margin-bottom: 8px;
 }
 
 .machine-lights span {
@@ -1078,13 +1079,13 @@ onBeforeUnmount(() => {
 
 .machine-window {
 	position: relative;
-	height: 344px;
-	padding: 18px;
-	border-radius: 26px;
+	height: clamp(272px, 38vh, 320px);
+	padding: 14px;
+	border-radius: 24px;
 	background:
 		radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.95), transparent 28%),
 		linear-gradient(180deg, #fff6ea 0%, #fffdf9 54%, #ffe8d4 100%);
-	border: 6px solid #fde0c0;
+	border: 5px solid #fde0c0;
 	box-shadow: inset 0 -14px 24px rgba(200, 94, 39, 0.12);
 	overflow: hidden;
 }
@@ -1104,7 +1105,7 @@ onBeforeUnmount(() => {
 .capsule-bowl {
 	position: absolute;
 	left: 50%;
-	bottom: 35px;
+	bottom: 28px;
 	width: 65%;
 	height: 70%;
 	transform: translateX(-50%);
@@ -1240,7 +1241,7 @@ onBeforeUnmount(() => {
 	justify-content: space-between;
 	align-items: center;
 	gap: 16px;
-	padding: 16px 6px 8px;
+	padding: 12px 4px 6px;
 }
 
 .coin-slot {
@@ -1248,9 +1249,9 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	width: 92px;
-	height: 76px;
-	border-radius: 20px;
+	width: 86px;
+	height: 68px;
+	border-radius: 18px;
 	background: linear-gradient(180deg, #ffe2b8, #ffb85f);
 	box-shadow: inset 0 -10px 20px rgba(180, 96, 22, 0.18);
 	color: #74300d;
@@ -1269,8 +1270,8 @@ onBeforeUnmount(() => {
 .handle-button {
 	position: relative;
 	display: block;
-	width: 112px;
-	height: 84px;
+	width: 100px;
+	height: 76px;
 	border: 0;
 	background: transparent;
 	cursor: pointer;
@@ -1283,10 +1284,10 @@ onBeforeUnmount(() => {
 
 .handle-arm {
 	position: absolute;
-	left: 24px;
-	top: 38px;
-	width: 66px;
-	height: 16px;
+	left: 20px;
+	top: 34px;
+	width: 60px;
+	height: 14px;
 	border-radius: 999px;
 	background: linear-gradient(180deg, #f8f5ff, #c5d0e8);
 	box-shadow: inset 0 -4px 10px rgba(74, 97, 131, 0.18);
@@ -1296,10 +1297,10 @@ onBeforeUnmount(() => {
 .handle-knob {
 	position: absolute;
 	z-index: 1;
-	right: 6px;
-	top: 28px;
-	width: 36px;
-	height: 36px;
+	right: 8px;
+	top: 24px;
+	width: 32px;
+	height: 32px;
 	border-radius: 50%;
 	background: radial-gradient(circle at 30% 30%, #fff9d1, #ffca4e 65%, #ea8f13 100%);
 	box-shadow:
@@ -1308,15 +1309,15 @@ onBeforeUnmount(() => {
 }
 
 .machine-bottom {
-	margin-top: 4px;
-	padding: 8px 4px 0;
+	margin-top: 2px;
+	padding: 4px 4px 0;
 }
 
 .tray-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 10px;
+	margin-bottom: 8px;
 	color: #fff2e6;
 }
 
@@ -1337,8 +1338,8 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	height: 84px;
-	border-radius: 20px;
+	height: 74px;
+	border-radius: 18px;
 	background:
 		linear-gradient(180deg, rgba(123, 24, 0, 0.28), rgba(255, 255, 255, 0.08)),
 		linear-gradient(180deg, #7e2510, #55200c);
@@ -1398,7 +1399,7 @@ onBeforeUnmount(() => {
 .side-panel {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr) auto;
-	gap: 18px;
+	gap: 14px;
 	min-height: 0;
 	height: 100%;
 }
@@ -1407,9 +1408,9 @@ onBeforeUnmount(() => {
 .record-panel {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
-	padding: 24px;
-	border-radius: 34px;
+	gap: 14px;
+	padding: 18px;
+	border-radius: 28px;
 	background: rgba(255, 248, 238, 0.7);
 	backdrop-filter: blur(14px);
 	border: 1px solid rgba(255, 255, 255, 0.46);
@@ -1421,26 +1422,26 @@ onBeforeUnmount(() => {
 }
 
 .panel-kicker {
-	font-size: 12px;
+	font-size: 11px;
 	letter-spacing: 0.22em;
 	text-transform: uppercase;
 	color: #a55320;
 }
 
 .panel-head h2 {
-	margin-top: 8px;
+	margin-top: 4px;
 	color: #642807;
-	font-size: 30px;
+	font-size: 26px;
 }
 
 .collection-card {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 12px;
 	flex: 1;
 	min-height: 0;
-	padding: 20px;
-	border-radius: 28px;
+	padding: 16px;
+	border-radius: 24px;
 	background:
 		radial-gradient(circle at top, rgba(255, 255, 255, 0.75), transparent 36%),
 		linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 247, 240, 0.94));
@@ -1459,8 +1460,8 @@ onBeforeUnmount(() => {
 .collection-stat {
 	display: grid;
 	gap: 6px;
-	padding: 14px 16px;
-	border-radius: 20px;
+	padding: 12px 14px;
+	border-radius: 18px;
 	background: rgba(255, 255, 255, 0.76);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
@@ -1471,17 +1472,17 @@ onBeforeUnmount(() => {
 }
 
 .collection-stat strong {
-	font-size: 24px;
+	font-size: 22px;
 	color: #673010;
 }
 
 .panel-cta-button {
-	padding: 14px 16px;
+	padding: 12px 14px;
 	border: 0;
 	border-radius: 18px;
 	background: linear-gradient(135deg, #ff9a5f, #ef5d2f);
 	color: #fffaf4;
-	font-size: 15px;
+	font-size: 14px;
 	font-weight: 700;
 	cursor: pointer;
 	box-shadow: 0 16px 28px rgba(206, 95, 44, 0.22);
@@ -1494,49 +1495,49 @@ onBeforeUnmount(() => {
 
 .record-panel {
 	justify-content: flex-start;
-	min-height: 154px;
+	min-height: 144px;
 }
 
 .profile-summary {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 10px;
+	gap: 8px;
 }
 
 .profile-stat {
 	display: grid;
 	gap: 6px;
-	padding: 14px 12px;
-	border-radius: 20px;
+	padding: 12px 10px;
+	border-radius: 18px;
 	background: rgba(255, 255, 255, 0.76);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
 .profile-stat strong {
-	font-size: 20px;
+	font-size: 18px;
 	color: #673010;
 }
 
 .profile-refresh {
-	font-size: 13px;
-	line-height: 1.6;
+	font-size: 12px;
+	line-height: 1.4;
 	color: rgba(103, 48, 16, 0.7);
 }
 
 .panel-actions {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 2px;
 }
 
 .text-action-button {
-	padding: 4px 0;
+	padding: 2px 0;
 	border: 0;
 	background: transparent;
 	color: #8b471d;
-	font-size: 18px;
+	font-size: 16px;
 	font-weight: 700;
-	line-height: 1.5;
+	line-height: 1.35;
 	text-align: left;
 	cursor: pointer;
 }
@@ -1552,7 +1553,7 @@ onBeforeUnmount(() => {
 }
 
 .action-button-secondary {
-	font-size: 15px;
+	font-size: 14px;
 	color: #a55320;
 }
 
@@ -1663,6 +1664,14 @@ onBeforeUnmount(() => {
 	}
 	50% {
 		transform: translateY(-4px);
+	}
+}
+
+@media (max-width: 1200px) {
+	.machine-main {
+		grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.7fr);
+		gap: 24px;
+		height: min(100%, calc(100dvh - 142px));
 	}
 }
 
