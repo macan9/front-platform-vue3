@@ -14,11 +14,11 @@
 			<header class="game-toolbar">
 				<div class="scoreboard">
 					<div class="score-group">
-						<div class="score-card">
+						<div class="score-card score-card--high">
 							<span class="score-label">最高</span>
 							<strong>{{ highScore }}</strong>
 						</div>
-						<div class="score-card">
+						<div class="score-card score-card--current">
 							<span class="score-label">当前</span>
 							<strong>{{ score }}</strong>
 						</div>
@@ -31,7 +31,28 @@
 
 			<canvas ref="canvasRef" class="game-canvas" @click="handleCanvasClick" />
 
-			<div class="hud">
+			<div v-if="isMobile && !showOverlay" class="canvas-tap-zones" aria-hidden="true">
+				<button
+					class="canvas-tap-zone canvas-tap-zone--left"
+					type="button"
+					tabindex="-1"
+					@pointerdown.prevent="setMoveState('left', true)"
+					@pointerup.prevent="setMoveState('left', false)"
+					@pointerleave.prevent="setMoveState('left', false)"
+					@pointercancel.prevent="setMoveState('left', false)"
+				/>
+				<button
+					class="canvas-tap-zone canvas-tap-zone--right"
+					type="button"
+					tabindex="-1"
+					@pointerdown.prevent="setMoveState('right', true)"
+					@pointerup.prevent="setMoveState('right', false)"
+					@pointerleave.prevent="setMoveState('right', false)"
+					@pointercancel.prevent="setMoveState('right', false)"
+				/>
+			</div>
+
+			<div class="hud" v-if="!isMobile">
 				<div class="hud-pill">方向键 / A D 控制左右</div>
 				<div class="hud-pill">踩中平台持续向上冲刺</div>
 			</div>
@@ -66,26 +87,28 @@
 				</div>
 			</div>
 
-			<div v-if="isMobile" class="touch-controls">
+			<div v-if="isMobile && !showOverlay" class="touch-controls">
 				<button
 					class="touch-button"
 					type="button"
+					aria-label="move left"
 					@pointerdown.prevent="setMoveState('left', true)"
 					@pointerup.prevent="setMoveState('left', false)"
 					@pointerleave.prevent="setMoveState('left', false)"
 					@pointercancel.prevent="setMoveState('left', false)"
 				>
-					向左
+					<span aria-hidden="true">←</span>
 				</button>
 				<button
 					class="touch-button"
 					type="button"
+					aria-label="move right"
 					@pointerdown.prevent="setMoveState('right', true)"
 					@pointerup.prevent="setMoveState('right', false)"
 					@pointerleave.prevent="setMoveState('right', false)"
 					@pointercancel.prevent="setMoveState('right', false)"
 				>
-					向右
+					<span aria-hidden="true">→</span>
 				</button>
 			</div>
 
@@ -244,7 +267,7 @@ function loadHighScore() {
 
 		highScore.value = Number.isFinite(parsedHighScore) ? parsedHighScore : 0
 		score.value = Number.isFinite(parsedLastScore) ? parsedLastScore : 0
-	} catch (error) {
+	} catch {
 		highScore.value = 0
 		score.value = 0
 	}
@@ -254,7 +277,7 @@ function saveHighScore(value) {
 	highScore.value = value
 	try {
 		localStorage.setItem(STORAGE_KEY, String(value))
-	} catch (error) {
+	} catch {
 		// Ignore storage failures so the game loop is not affected.
 	}
 }
@@ -262,7 +285,7 @@ function saveHighScore(value) {
 function saveLastScore(value) {
 	try {
 		localStorage.setItem(LAST_SCORE_STORAGE_KEY, String(value))
-	} catch (error) {
+	} catch {
 		// Ignore storage failures so the game loop is not affected.
 	}
 }
@@ -410,24 +433,48 @@ function setMoveState(direction, value) {
 	if (direction === 'right') moveRight.value = value
 }
 
+function isLeftControlKey(event) {
+	return (
+		event.code === 'ArrowLeft' ||
+		event.code === 'KeyA' ||
+		event.key === 'ArrowLeft' ||
+		String(event.key || '').toLowerCase() === 'a'
+	)
+}
+
+function isRightControlKey(event) {
+	return (
+		event.code === 'ArrowRight' ||
+		event.code === 'KeyD' ||
+		event.key === 'ArrowRight' ||
+		String(event.key || '').toLowerCase() === 'd'
+	)
+}
+
 function handleKeyDown(event) {
-	if (event.code === 'ArrowLeft' || event.code === 'KeyA') {
+	if (isLeftControlKey(event)) {
+		event.preventDefault()
 		moveLeft.value = true
 	}
-	if (event.code === 'ArrowRight' || event.code === 'KeyD') {
+	if (isRightControlKey(event)) {
+		event.preventDefault()
 		moveRight.value = true
 	}
-	if (event.code === 'Space' && showOverlay.value) {
-		event.preventDefault()
-		restartGame()
+	if (event.code === 'Space' || event.key === ' ') {
+		if (showOverlay.value) {
+			event.preventDefault()
+			restartGame()
+		}
 	}
 }
 
 function handleKeyUp(event) {
-	if (event.code === 'ArrowLeft' || event.code === 'KeyA') {
+	if (isLeftControlKey(event)) {
+		event.preventDefault()
 		moveLeft.value = false
 	}
-	if (event.code === 'ArrowRight' || event.code === 'KeyD') {
+	if (isRightControlKey(event)) {
+		event.preventDefault()
 		moveRight.value = false
 	}
 }
@@ -745,8 +792,8 @@ onMounted(() => {
 
 	resizeHandler = () => syncCanvasSize()
 	window.addEventListener('resize', resizeHandler)
-	window.addEventListener('keydown', handleKeyDown)
-	window.addEventListener('keyup', handleKeyUp)
+	window.addEventListener('keydown', handleKeyDown, { passive: false })
+	window.addEventListener('keyup', handleKeyUp, { passive: false })
 
 	animationFrameId = window.requestAnimationFrame(animate)
 })
@@ -772,7 +819,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
 .graffiti-jump-page.home-view-page {
 	height: 100%;
 	display: flex;
@@ -880,7 +927,8 @@ onBeforeUnmount(() => {
 
 .action-button,
 .overlay-button,
-.touch-button {
+.touch-button,
+.canvas-tap-zone {
 	border: 0;
 	cursor: pointer;
 	user-select: none;
@@ -890,7 +938,8 @@ onBeforeUnmount(() => {
 	transition:
 		transform 0.18s ease,
 		box-shadow 0.18s ease,
-		background 0.18s ease;
+		background 0.18s ease,
+		opacity 0.18s ease;
 }
 
 .action-button {
@@ -935,6 +984,28 @@ onBeforeUnmount(() => {
 	touch-action: manipulation;
 }
 
+.canvas-tap-zones {
+	position: absolute;
+	left: 14px;
+	right: 14px;
+	top: 14px;
+	bottom: 96px;
+	z-index: 1;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0;
+}
+
+.canvas-tap-zone {
+	background: transparent;
+	opacity: 0;
+}
+
+.canvas-tap-zone:active {
+	opacity: 0.08;
+	background: rgba(49, 68, 40, 0.5);
+}
+
 .hud {
 	width: 180px;
 	position: absolute;
@@ -945,6 +1016,7 @@ onBeforeUnmount(() => {
 	gap: 8px;
 	flex-wrap: wrap;
 	pointer-events: none;
+	z-index: 2;
 }
 
 .hud-pill {
@@ -965,6 +1037,7 @@ onBeforeUnmount(() => {
 	padding: 20px;
 	background: rgba(244, 240, 218, 0.55);
 	backdrop-filter: blur(5px);
+	z-index: 4;
 }
 
 .overlay-card {
@@ -1041,16 +1114,20 @@ onBeforeUnmount(() => {
 	bottom: 18px;
 	display: flex;
 	justify-content: center;
-	gap: 14px;
+	gap: 16px;
+	z-index: 3;
 }
 
 .touch-button {
-	min-width: 116px;
+	min-width: 132px;
+	min-height: 72px;
 	padding: 12px 16px;
-	border-radius: 18px;
-	background: rgba(255, 252, 238, 0.88);
+	border-radius: 22px;
+	background: rgba(255, 252, 238, 0.92);
 	color: #314428;
-	font-weight: 700;
+	font-weight: 800;
+	font-size: 34px;
+	line-height: 1;
 	box-shadow: 0 12px 26px rgba(74, 98, 55, 0.14);
 }
 
@@ -1070,25 +1147,88 @@ onBeforeUnmount(() => {
 	}
 
 	.game-toolbar {
-		top: 12px;
-		left: 12px;
-		right: 12px;
+		top: 16px;
+		left: 18px;
+		right: 18px;
+	}
+
+	.scoreboard {
+		align-items: flex-start;
+		justify-content: flex-start;
+		gap: 0;
+	}
+
+	.score-group {
+		gap: 0;
+		width: 100%;
+	}
+
+	.score-card {
+		min-width: auto;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		backdrop-filter: none;
+		color: rgba(36, 52, 20, 0.62);
+
+		strong {
+			font-size: 18px;
+			line-height: 1;
+			color: rgba(36, 52, 20, 0.72);
+		}
+	}
+
+	.score-card--high {
+		display: none;
+	}
+
+	.score-card--current {
+		padding-left: 4px;
+
+		strong {
+			font-size: 20px;
+			line-height: 1;
+		}
+	}
+
+	.score-label {
+		font-size: 10px;
+		letter-spacing: 0.04em;
+		color: rgba(36, 52, 20, 0.45);
+	}
+
+	.action-button {
+		display: none;
 	}
 
 	.game-shell {
-		padding: 10px 10px 74px;
+		padding: 8px 8px 58px;
 	}
 
-	.game-canvas {
-		width: 100%;
-		height: 100%;
+	.canvas-tap-zones {
+		left: 8px;
+		right: 8px;
+		top: 8px;
+		bottom: 66px;
 	}
 
-	.hud {
-		top: 88px;
-		left: 16px;
-		right: 16px;
-		width: auto;
+	.touch-controls {
+		left: 18px;
+		right: 18px;
+		bottom: 8px;
+		gap: 12px;
+	}
+
+	.touch-button {
+		flex: 1;
+		min-width: 0;
+		min-height: 39px;
+		max-width: 40%;
+		font-size: 38px;
+		padding: 6px 12px;
+		border-radius: 16px;
 	}
 }
 </style>

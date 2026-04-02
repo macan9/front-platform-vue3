@@ -67,19 +67,14 @@
 							<button class="primary-btn" type="button" :disabled="isSpinning || !canSpin" @click="spinWheel">
 								{{ isSpinning ? '旋转中...' : '开始抽奖' }}
 							</button>
+							<button class="ghost-btn" type="button" :disabled="isSpinning" @click="showPrizeDialog = true">
+								奖品详情
+							</button>
 							<button class="ghost-btn" type="button" :disabled="isSpinning" @click="resetRecords">
 								清空记录
 							</button>
 						</div>
 
-						<div v-if="currentResult" class="winner-card" :style="{ '--winner-color': currentResult.color }">
-							<div class="winner-icon">{{ currentResult.icon }}</div>
-							<div class="winner-info">
-								<p class="winner-title">本次抽中</p>
-								<h3>{{ currentResult.label }}</h3>
-								<p>{{ currentResult.description }}</p>
-							</div>
-						</div>
 					</div>
 				</div>
 
@@ -219,6 +214,57 @@
 				</div>
 			</div>
 		</el-dialog>
+
+		<el-dialog
+			v-model="showPrizeDialog"
+			class="lucky-prize-dialog"
+			title="奖品详情"
+			width="720px"
+			append-to-body
+			align-center
+		>
+			<div class="prize-dialog-body">
+				<div class="prize-dialog-toolbar">
+					<p>当前转盘共 {{ wheelItems.length }} 个奖项，按概率展示。</p>
+				</div>
+				<div class="preview-list prize-dialog-list">
+					<div
+						v-for="item in wheelItems"
+						:key="item.id"
+						class="preview-item"
+						:style="{ '--preview-color': item.color }"
+					>
+						<span class="preview-icon">{{ item.icon }}</span>
+						<div class="preview-content">
+							<strong>{{ item.label }} · {{ item.percentage }}%</strong>
+							<p>{{ item.description }}</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</el-dialog>
+
+		<el-dialog
+			v-model="showResultDialog"
+			class="lucky-result-dialog"
+			title="抽奖结果"
+			width="460px"
+			append-to-body
+			align-center
+		>
+			<div
+				v-if="currentResult"
+				class="winner-card winner-dialog-card"
+				:style="{ '--winner-color': currentResult.color }"
+			>
+				<div class="winner-icon">{{ currentResult.icon }}</div>
+				<div class="winner-info">
+					<p class="winner-title">本次抽中</p>
+					<h3>{{ currentResult.label }}</h3>
+					<p>{{ currentResult.description }}</p>
+				</div>
+			</div>
+		</el-dialog>
 	</section>
 </template>
 
@@ -254,6 +300,8 @@ const rotation = ref(0)
 const currentResult = ref(null)
 const spinRecords = ref([])
 const showHistoryDialog = ref(false)
+const showPrizeDialog = ref(false)
+const showResultDialog = ref(false)
 let rotationFrame = null
 let wheelResizeObserver = null
 let removeWheelResizeListener = null
@@ -334,6 +382,7 @@ const resetRecords = () => {
 	spinRecords.value = []
 	currentResult.value = null
 	showHistoryDialog.value = false
+	showResultDialog.value = false
 }
 
 const easeOutCubic = (t) => 1 - (1 - t) ** 3
@@ -380,6 +429,7 @@ const animateRotation = ({ from, to, duration, onComplete }) => {
 const spinWheel = () => {
 	if (isSpinning.value || !canSpin.value) return
 
+	showResultDialog.value = false
 	const randomValue = Math.random() * totalPercentage.value
 	let current = 0
 	const targetSegment =
@@ -404,6 +454,7 @@ const spinWheel = () => {
 			rotation.value = normalizeAngle(finalRotation)
 			currentResult.value = targetItem
 			appendRecord(targetItem)
+			showResultDialog.value = true
 			isSpinning.value = false
 		},
 	})
@@ -449,10 +500,11 @@ onBeforeUnmount(() => {
 }
 
 .lucky-wheel-scroll {
-	height: calc(100% - 20px);
-	margin: 10px 0;
+	height: 100%;
+	padding: 10px 0;
+	box-sizing: border-box;
 	overflow-x: hidden;
-	overflow-y: auto;
+	overflow-y: hidden;
 	scrollbar-width: thin;
 	scrollbar-color: rgba(214, 109, 55, 0.88) rgba(255, 247, 239, 0.46);
 }
@@ -478,12 +530,14 @@ onBeforeUnmount(() => {
 
 .lucky-wheel-shell {
 	width: min(1360px, calc(100% - 32px));
-	min-height: 100%;
+	height: 100%;
+	min-height: 0;
 	margin: 0 auto;
-	padding: 28px 0;
+	padding: 8px 0 12px;
 	display: grid;
-	grid-template-columns: minmax(0, 1.4fr) minmax(320px, 420px);
-	gap: 24px;
+	grid-template-columns: minmax(0, 1.32fr) minmax(300px, 390px);
+	gap: 16px;
+	align-items: stretch;
 	box-sizing: border-box;
 }
 
@@ -497,10 +551,11 @@ onBeforeUnmount(() => {
 }
 
 .wheel-board {
-	padding: 28px;
+	padding: 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 90px;
+	justify-content: space-between;
+	gap: 20px;
 }
 
 .eyebrow,
@@ -519,7 +574,8 @@ onBeforeUnmount(() => {
 }
 
 .board-copy h1 {
-	font-size: 38px;
+	margin-bottom: 8px;
+	font-size: 32px;
 }
 
 .board-desc,
@@ -537,17 +593,17 @@ onBeforeUnmount(() => {
 .wheel-stage {
 	display: grid;
 	align-content: start;
-	gap: 16px;
+	gap: 12px;
 	justify-items: center;
 }
 
 .wheel-wrap {
 	position: relative;
-	width: min(100%, 560px);
+	width: min(100%, 460px, calc(100vh - 280px));
 	aspect-ratio: 1;
 	display: grid;
 	place-items: center;
-	padding: 24px;
+	padding: 14px;
 }
 
 .wheel-wrap::before {
@@ -753,7 +809,9 @@ onBeforeUnmount(() => {
 
 .wheel-actions {
 	display: flex;
-	gap: 14px;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 10px;
 }
 
 .primary-btn,
@@ -776,7 +834,7 @@ onBeforeUnmount(() => {
 }
 
 .primary-btn {
-	padding: 14px 22px;
+	padding: 12px 18px;
 	border-radius: 16px;
 	background: linear-gradient(135deg, #ff965a, #ef5d2f);
 	color: #fffaf4;
@@ -786,7 +844,7 @@ onBeforeUnmount(() => {
 }
 
 .ghost-btn {
-	padding: 12px 18px;
+	padding: 10px 16px;
 	border-radius: 14px;
 	background: rgba(255, 248, 241, 0.95);
 	color: #7a3a1d;
@@ -835,21 +893,25 @@ onBeforeUnmount(() => {
 	color: #6e3118;
 }
 
+.winner-dialog-card {
+	padding: 22px;
+}
+
 .side-panel {
 	display: grid;
-	align-content: start;
-	gap: 24px;
+	align-content: stretch;
+	gap: 0;
 }
 
 .panel-card {
-	padding: 24px;
+	padding: 18px;
 	display: grid;
 	align-content: start;
-	gap: 18px;
+	gap: 14px;
 }
 
 .config-card {
-	height: fit-content;
+	display: none;
 }
 
 .panel-head {
@@ -876,7 +938,7 @@ onBeforeUnmount(() => {
 .preview-list {
 	display: grid;
 	gap: 12px;
-	max-height: 560px;
+	max-height: min(52vh, 520px);
 	overflow: auto;
 	padding-right: 4px;
 }
@@ -950,12 +1012,12 @@ onBeforeUnmount(() => {
 
 .record-entry-card {
 	display: grid;
-	gap: 16px;
+	gap: 12px;
 }
 
 .record-entry-summary {
 	display: grid;
-	gap: 14px;
+	gap: 12px;
 }
 
 .record-entry-stats,
@@ -973,7 +1035,7 @@ onBeforeUnmount(() => {
 .history-dialog-stat {
 	display: grid;
 	gap: 6px;
-	padding: 14px;
+	padding: 12px;
 	border-radius: 18px;
 	background: rgba(255, 247, 239, 0.94);
 	border: 1px solid rgba(255, 255, 255, 0.78);
@@ -1001,6 +1063,21 @@ onBeforeUnmount(() => {
 .history-dialog-body {
 	display: grid;
 	gap: 16px;
+}
+
+.prize-dialog-body {
+	display: grid;
+	gap: 16px;
+}
+
+.prize-dialog-toolbar p {
+	margin: 0;
+	color: rgba(103, 57, 33, 0.72);
+	line-height: 1.6;
+}
+
+.prize-dialog-list {
+	max-height: min(62vh, 520px);
 }
 
 .history-dialog-toolbar {
@@ -1055,6 +1132,76 @@ onBeforeUnmount(() => {
 	font-size: 28px;
 }
 
+:deep(.lucky-result-dialog .el-dialog) {
+	border-radius: 28px;
+	overflow: hidden;
+	background: rgba(255, 250, 244, 0.98);
+	box-shadow: 0 28px 64px rgba(145, 76, 34, 0.22);
+}
+
+:deep(.lucky-result-dialog .el-dialog__header) {
+	margin-right: 0;
+	padding: 22px 24px 8px;
+	background:
+		radial-gradient(circle at top left, rgba(255, 228, 185, 0.75), transparent 30%),
+		linear-gradient(180deg, rgba(255, 247, 238, 0.92), rgba(255, 250, 244, 0.92));
+}
+
+:deep(.lucky-result-dialog .el-dialog__title) {
+	font-size: 24px;
+	font-weight: 800;
+	color: #71341b;
+}
+
+:deep(.lucky-result-dialog .el-dialog__body) {
+	padding: 16px 24px 24px;
+}
+
+:deep(.lucky-result-dialog .el-dialog__headerbtn) {
+	top: 20px;
+	right: 20px;
+}
+
+:deep(.lucky-result-dialog .el-dialog__close) {
+	color: #a55528;
+	font-size: 18px;
+}
+
+:deep(.lucky-prize-dialog .el-dialog) {
+	border-radius: 28px;
+	overflow: hidden;
+	background: rgba(255, 250, 244, 0.98);
+	box-shadow: 0 28px 64px rgba(145, 76, 34, 0.22);
+}
+
+:deep(.lucky-prize-dialog .el-dialog__header) {
+	margin-right: 0;
+	padding: 22px 24px 8px;
+	background:
+		radial-gradient(circle at top left, rgba(255, 228, 185, 0.75), transparent 30%),
+		linear-gradient(180deg, rgba(255, 247, 238, 0.92), rgba(255, 250, 244, 0.92));
+}
+
+:deep(.lucky-prize-dialog .el-dialog__title) {
+	font-size: 24px;
+	font-weight: 800;
+	color: #71341b;
+}
+
+:deep(.lucky-prize-dialog .el-dialog__body) {
+	padding: 16px 24px 24px;
+}
+
+:deep(.lucky-prize-dialog .el-dialog__headerbtn) {
+	top: 20px;
+	right: 20px;
+}
+
+:deep(.lucky-prize-dialog .el-dialog__close) {
+	color: #a55528;
+	font-size: 18px;
+}
+
 :deep(.lucky-history-dialog .el-dialog) {
 	border-radius: 28px;
 	overflow: hidden;
@@ -1095,15 +1242,24 @@ onBeforeUnmount(() => {
 		grid-template-columns: 1fr;
 	}
 
+	.wheel-wrap {
+		width: min(100%, 560px);
+	}
+
 	.side-panel {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 
 @media (max-width: 820px) {
+	.lucky-wheel-scroll {
+		overflow-y: auto;
+	}
+
 	.lucky-wheel-shell {
 		width: min(100%, calc(100% - 16px));
-		padding: 16px 0 24px;
+		height: auto;
+		padding: 10px 0 16px;
 	}
 
 	.wheel-board,
@@ -1176,6 +1332,24 @@ onBeforeUnmount(() => {
 	}
 
 	:deep(.lucky-history-dialog .el-dialog__body) {
+		padding: 14px 16px 18px;
+	}
+
+	:deep(.lucky-prize-dialog .el-dialog) {
+		width: calc(100vw - 20px) !important;
+		margin: 0 auto;
+	}
+
+	:deep(.lucky-prize-dialog .el-dialog__body) {
+		padding: 14px 16px 18px;
+	}
+
+	:deep(.lucky-result-dialog .el-dialog) {
+		width: calc(100vw - 20px) !important;
+		margin: 0 auto;
+	}
+
+	:deep(.lucky-result-dialog .el-dialog__body) {
 		padding: 14px 16px 18px;
 	}
 }

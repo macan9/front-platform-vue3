@@ -164,6 +164,7 @@ watch(
 .leaderboard-modal {
   position: absolute;
   inset: 0;
+  z-index: 12;
   display: flex;
   align-items: center;
   justify-content: center;

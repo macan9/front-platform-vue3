@@ -1,12 +1,5 @@
 <template>
   <div class="dont-hit-the-spikes">
-    <div class="dont-hit-fullscreen-toggle">
-      <FullscreenToggle
-        v-model:fullscreen="pageFullscreen"
-        v-model:menu-visible="pageMenuVisible"
-      />
-    </div>
-
     <div class="three-loading" :class="{ 'is-hidden': !isLoading }">
       <div class="three-loading-spinner"></div>
       <p>正在初始化躲避尖刺...</p>
@@ -16,14 +9,33 @@
 
     <div class="dont-hit-remind">
       <div class="hud">
-        <button class="theme-switch-btn" type="button" @click="toggleTheme">
-          主题：{{ currentThemeLabel }}
-        </button>
-        <h1 class="reaction">速度：{{ reactionSpeedText }}</h1>
-        <h1 class="density">密度：{{ spikeDensityText }}</h1>
-        <h1 class="score">得分：{{ score }}</h1>
-        <h1 class="last-score">上次得分：{{ lastScore }}</h1>
-        <h1 class="paused" v-if="paused">已暂停</h1>
+        <div class="hud__row">
+          <button class="theme-switch-btn" type="button" @click="toggleTheme">
+            主题：{{ currentThemeLabel }}
+          </button>
+
+          <div class="hud__group hud__group--left">
+            <h1 class="hud-metric reaction">速度：{{ reactionSpeedText }}</h1>
+            <h1 class="hud-metric density">密度：{{ spikeDensityText }}</h1>
+          </div>
+
+          <div class="hud__right">
+            <div class="hud__group hud__group--right">
+              <h1 class="hud-metric last-score">上次得分：{{ lastScore }}</h1>
+              <h1 class="hud-metric score">当前得分：{{ score }}</h1>
+            </div>
+
+            <div class="hud__fullscreen">
+              <FullscreenToggle
+                class="dont-hit-fullscreen-toggle dont-hit-fullscreen-toggle--dark"
+                v-model:fullscreen="pageFullscreen"
+                v-model:menu-visible="pageMenuVisible"
+              />
+            </div>
+          </div>
+        </div>
+
+        <h1 class="hud-status paused" v-if="paused">已暂停</h1>
       </div>
 
       <div class="modal" v-if="stopped">
@@ -139,7 +151,7 @@ const recordBtnText = computed(() => {
 
 const reactionSpeedText = computed(() => `${reactionSpeed.value.toFixed(2)}x`)
 const spikeDensityText = computed(() => spikeDensity.value.toFixed(2))
-const currentThemeLabel = computed(() => (currentTheme.value === 'neon' ? 'Neon' : 'Industrial'))
+const currentThemeLabel = computed(() => (currentTheme.value === 'neon' ? '霓虹' : '工业'))
 
 let gameRuntime = null
 let layoutObserver = null
@@ -309,13 +321,6 @@ onUnmounted(() => {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 
-  .dont-hit-fullscreen-toggle {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    z-index: 50;
-  }
-
   #dont-hit {
     width: 100%;
     height: 100%;
@@ -372,55 +377,72 @@ onUnmounted(() => {
 
     .hud {
       position: absolute;
-      inset: 0;
+      top: 1rem;
+      left: 1rem;
+      right: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
       pointer-events: none;
+      
+      &__row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 1rem;
+      }
+
+      &__group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 0;
+
+        &--left {
+          align-items: flex-start;
+        }
+
+        &--right {
+          align-items: flex-end;
+          text-align: right;
+        }
+      }
+
+      &__right {
+        display: inline-flex;
+        align-items: flex-start;
+        justify-self: end;
+        gap: 0.55rem;
+        pointer-events: auto;
+      }
+
+      &__fullscreen {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding-left: 0.1rem;
+      }
     }
 
-    h1 {
+    .hud-metric,
+    .hud-status {
       margin: 0;
       color: #fcba03;
-      font-size: 1.25rem;
+      font-size: 1.05rem;
+      line-height: 1.2;
       text-shadow: 2px 2px rgba(0, 0, 0, 0.5);
       font-family: Arial, sans-serif;
     }
 
-    .reaction {
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
-    }
-
-    .density {
-      position: absolute;
-      top: 3.2rem;
-      left: 1rem;
-    }
-
-    .paused {
-      position: absolute;
-      top: 5.4rem;
-      left: 1rem;
-    }
-
-    .score {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-    }
-
-    .last-score {
-      position: absolute;
-      top: 3.2rem;
-      right: 1rem;
+    .hud-status {
+      align-self: flex-start;
     }
 
     .theme-switch-btn {
-      position: absolute;
-      top: 1rem;
-      right: 50%;
-      transform: translateX(50%);
+      align-self: start;
+      justify-self: start;
       min-width: 132px;
-      padding: 0.55rem 0.9rem;
+      padding: 0.55rem 1rem;
       border: 1px solid rgba(252, 186, 3, 0.45);
       border-radius: 999px;
       background: rgba(0, 17, 39, 0.68);
@@ -437,6 +459,51 @@ onUnmounted(() => {
 
     .theme-switch-btn:hover {
       background: rgba(252, 186, 3, 0.14);
+    }
+
+    .dont-hit-fullscreen-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+
+      &--dark {
+        &:deep(.fullscreen-toggle) {
+          border: 1px solid rgba(252, 186, 3, 0.35);
+          background: rgba(0, 29, 69, 0.92);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+          color: #fcba03;
+        }
+
+        &:deep(.fullscreen-toggle:hover) {
+          border-color: rgba(252, 186, 3, 0.55);
+          background: rgba(252, 186, 3, 0.12);
+          box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4);
+        }
+
+        &:deep(.fullscreen-toggle.is-active) {
+          border-color: rgba(252, 186, 3, 0.65);
+          background: rgba(0, 0, 0, 0.25);
+          color: #ffd364;
+        }
+
+        &:deep(.fullscreen-toggle__icon.is-enter::before) {
+          background:
+            linear-gradient(#fcba03, #fcba03) 0 0 / 7px 2px no-repeat,
+            linear-gradient(#fcba03, #fcba03) 0 0 / 2px 7px no-repeat,
+            linear-gradient(#fcba03, #fcba03) 100% 0 / 7px 2px no-repeat,
+            linear-gradient(#fcba03, #fcba03) 100% 0 / 2px 7px no-repeat,
+            linear-gradient(#fcba03, #fcba03) 0 100% / 7px 2px no-repeat,
+            linear-gradient(#fcba03, #fcba03) 0 100% / 2px 7px no-repeat,
+            linear-gradient(#fcba03, #fcba03) 100% 100% / 7px 2px no-repeat,
+            linear-gradient(#fcba03, #fcba03) 100% 100% / 2px 7px no-repeat;
+        }
+
+        &:deep(.fullscreen-toggle__icon.is-exit::before),
+        &:deep(.fullscreen-toggle__icon.is-exit::after) {
+          background: #fcba03;
+        }
+      }
     }
 
     .modal {
@@ -556,11 +623,6 @@ onUnmounted(() => {
 }
 
 @media (min-width: 769px) {
-  .dont-hit-the-spikes .dont-hit-fullscreen-toggle {
-    top: 16px;
-    right: 20px;
-  }
-
   .dont-hit-the-spikes .dont-hit-remind .touch-controls {
     display: none;
   }
@@ -568,35 +630,69 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .dont-hit-the-spikes .dont-hit-remind {
-    .hud h1 {
-      font-size: 1rem;
-    }
-
-    .reaction,
-    .score,
-    .theme-switch-btn {
+    .hud {
       top: 0.8rem;
+      left: 0.8rem;
+      right: 0.8rem;
+      gap: 0;
+
+      &__row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.55rem;
+      }
+
+      &__group {
+        gap: 0.35rem;
+
+        &--right {
+          align-items: flex-start;
+          text-align: left;
+        }
+      }
+
+      &__right {
+        justify-content: flex-end;
+        justify-self: end;
+        gap: 0.5rem;
+      }
     }
 
-    .density,
-    .last-score {
-      top: 2.6rem;
+    .hud-metric,
+    .hud-status {
+      font-size: 0.95rem;
+    }
+
+    .hud__group--left,
+    .theme-switch-btn {
+      display: none;
     }
 
     .paused {
-      top: 4.4rem;
+      display: none;
     }
 
-    .theme-switch-btn {
-      min-width: 110px;
-      padding: 0.48rem 0.75rem;
-      font-size: 0.84rem;
+    .score {
+      display: block;
     }
-  }
 
-  .dont-hit-the-spikes .dont-hit-fullscreen-toggle {
-    top: calc(env(safe-area-inset-top, 0px) + 12px);
-    right: 12px;
+    .hud__group--right {
+      gap: 0;
+    }
+
+    .hud__fullscreen {
+      padding-left: 0;
+    }
+
+    .dont-hit-fullscreen-toggle {
+      &--dark {
+        &:deep(.fullscreen-toggle) {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+        }
+      }
+    }
   }
 }
 
