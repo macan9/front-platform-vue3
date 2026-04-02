@@ -277,6 +277,14 @@ watch(
 		margin: 1em 0;
 	}
 
+	.markdown-body p {
+		text-indent: 2em;
+	}
+
+	.markdown-body ul {
+		padding-left: 3em;
+	}
+
 	.markdown-body a {
 		color: #2f7ddc;
 		text-decoration: none;
@@ -318,6 +326,10 @@ watch(
 		color: #607387;
 		background: rgba(245, 249, 253, 0.9);
 		border-radius: 0 12px 12px 0;
+	}
+
+	.markdown-body blockquote p {
+		text-indent: 0;
 	}
 
 	.markdown-body table {
