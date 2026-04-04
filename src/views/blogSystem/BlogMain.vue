@@ -8,9 +8,47 @@
 			<div class="blog-header">
 				<div class="header-copy">
 					<div class="header-title">最新文章</div>
-					<!-- <div class="header-desc">先加载全部博客，再按列表形式展示封面、标题和简介。</div> -->
 				</div>
-				<el-button type="primary" plain :loading="loading" @click="getBlogList">刷新</el-button>
+
+				<div class="header-actions">
+					<el-button plain @click="goWriteBlog">写博客</el-button>
+					<el-button type="primary" plain :loading="loading" @click="getBlogList">刷新</el-button>
+				</div>
+			</div>
+
+			<div class="tag-panel">
+				<div class="tag-panel__header">
+					<div class="tag-panel__title">标签分类</div>
+					<div class="tag-panel__meta">
+						<span>{{ activeTagLabel }}</span>
+						<span>·</span>
+						<span>{{ filteredBlogList.length }} 篇</span>
+					</div>
+				</div>
+
+				<div class="tag-chip-list">
+					<button
+						type="button"
+						class="tag-chip"
+						:class="{ 'tag-chip--active': !activeTag }"
+						@click="setActiveTag('')"
+					>
+						<span>全部</span>
+						<span class="tag-chip__count">{{ blogList.length }}</span>
+					</button>
+
+					<button
+						v-for="item in tagCards"
+						:key="item.tag"
+						type="button"
+						class="tag-chip"
+						:class="{ 'tag-chip--active': activeTag === item.tag }"
+						@click="setActiveTag(item.tag)"
+					>
+						<span>{{ item.tag }}</span>
+						<span class="tag-chip__count">{{ item.count }}</span>
+					</button>
+				</div>
 			</div>
 
 			<div class="blog-list-wrap">
@@ -27,11 +65,14 @@
 					</template>
 
 					<template #default>
-						<el-empty v-if="!blogList.length" description="暂无博客内容" />
+						<el-empty
+							v-if="!filteredBlogList.length"
+							:description="activeTag ? `暂无 ${activeTag} 分类文章` : '暂无博客内容'"
+						/>
 
 						<div v-else class="blog-list">
 							<article
-								v-for="(item, index) in blogList"
+								v-for="(item, index) in filteredBlogList"
 								:key="getRowId(item, index)"
 								class="blog-card"
 								@click="openBlogDetail(item, index)"
@@ -58,6 +99,18 @@
 										</div>
 									</div>
 
+									<div class="blog-tags">
+										<el-tag
+											v-for="tag in item.normalizedTags"
+											:key="`${getRowId(item, index)}-${tag}`"
+											size="small"
+											effect="plain"
+											@click.stop="setActiveTag(tag)"
+										>
+											{{ tag }}
+										</el-tag>
+									</div>
+
 									<p class="blog-summary">
 										{{ getSummary(item) }}
 									</p>
@@ -72,23 +125,28 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { postListGet } from '@/apis/blogApis.js'
 import topStarIcon from '@/assets/icon/top-star.svg'
+import { blog_tag_options } from '/public/config/blog_tags'
 import {
 	formatDate,
 	getCover,
 	getRandomCover,
 	getRowId,
 	getSummary,
+	normalizeBlogTags,
 	thumbnailCoverList,
 } from '@/views/blogSystem/blogHelpers.js'
+
+const BLOG_MAIN_ACTIVE_TAG_KEY = 'blog_main_active_tag'
 
 const router = useRouter()
 const blogList = ref([])
 const loading = ref(false)
+const activeTag = ref(localStorage.getItem(BLOG_MAIN_ACTIVE_TAG_KEY) || '')
 
 const preloadImage = (src) => {
 	return new Promise((resolve) => {
@@ -106,6 +164,58 @@ const preloadImage = (src) => {
 
 const preloadCoverList = async (list) => {
 	await Promise.all(list.map((item) => preloadImage(item.coverUrl)))
+}
+
+const tagCards = computed(() => {
+	const countMap = new Map()
+
+	for (const item of blogList.value) {
+		for (const tag of item.normalizedTags) {
+			countMap.set(tag, (countMap.get(tag) || 0) + 1)
+		}
+	}
+
+	const configTags = blog_tag_options.filter((tag) => countMap.has(tag))
+	const dynamicTags = Array.from(countMap.keys()).filter((tag) => !blog_tag_options.includes(tag))
+	const orderedTags = [...configTags, ...dynamicTags]
+
+	return orderedTags.map((tag) => ({
+		tag,
+		count: countMap.get(tag) || 0,
+	}))
+})
+
+const filteredBlogList = computed(() => {
+	if (!activeTag.value) return blogList.value
+	return blogList.value.filter((item) => item.normalizedTags.includes(activeTag.value))
+})
+
+const activeTagLabel = computed(() => activeTag.value || '全部标签')
+
+watch(
+	activeTag,
+	(value) => {
+		if (value) {
+			localStorage.setItem(BLOG_MAIN_ACTIVE_TAG_KEY, value)
+			return
+		}
+
+		localStorage.removeItem(BLOG_MAIN_ACTIVE_TAG_KEY)
+	},
+	{ immediate: true }
+)
+
+const setActiveTag = (tag) => {
+	activeTag.value = String(tag || '').trim()
+}
+
+const goWriteBlog = () => {
+	router.push({
+		path: '/blogAdd',
+		query: {
+			from: 'BlogMain',
+		},
+	})
 }
 
 const openBlogDetail = (row, index) => {
@@ -132,10 +242,16 @@ const getBlogList = async () => {
 				...nextItem,
 				coverUrl: getCover(nextItem),
 				isTop: Number(nextItem.is_top) === 1,
+				normalizedTags: normalizeBlogTags(nextItem.tags),
 			}
 		})
+
 		await preloadCoverList(nextList)
 		blogList.value = nextList
+
+		if (activeTag.value && !tagCards.value.some((item) => item.tag === activeTag.value)) {
+			activeTag.value = ''
+		}
 	} catch (error) {
 		console.error('获取博客列表失败', error)
 		ElMessage.error('获取博客列表失败')
@@ -181,10 +297,86 @@ getBlogList()
 		color: #243447;
 	}
 
-	.header-desc {
-		margin-top: 6px;
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex-wrap: wrap;
+	}
+
+	.tag-panel {
+		padding: 16px 18px;
+		border-radius: 22px;
+		background: linear-gradient(135deg, rgba(252, 254, 255, 0.98), rgba(244, 248, 252, 0.96));
+		border: 1px solid rgba(209, 222, 235, 0.95);
+		box-shadow: 0 10px 22px rgba(108, 140, 170, 0.08);
+	}
+
+	.tag-panel__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 14px;
+		flex-wrap: wrap;
+	}
+
+	.tag-panel__title {
+		font-size: 15px;
+		font-weight: 700;
+		color: #26384b;
+	}
+
+	.tag-panel__meta {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+		color: #7b8ea3;
+	}
+
+	.tag-chip-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+	}
+
+	.tag-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 9px 14px;
+		border-radius: 999px;
+		border: 1px solid rgba(204, 218, 232, 0.95);
+		background: #fff;
+		color: #44586d;
 		font-size: 14px;
-		color: #718399;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.tag-chip:hover {
+		transform: translateY(-1px);
+		border-color: rgba(123, 164, 205, 0.95);
+		box-shadow: 0 10px 18px rgba(104, 137, 170, 0.12);
+	}
+
+	.tag-chip--active {
+		background: linear-gradient(135deg, #2f6ea6, #5f8fbb);
+		border-color: transparent;
+		color: #fff;
+		box-shadow: 0 12px 20px rgba(63, 108, 153, 0.24);
+	}
+
+	.tag-chip__count {
+		padding: 2px 8px;
+		border-radius: 999px;
+		background: rgba(53, 82, 112, 0.08);
+		font-size: 12px;
+	}
+
+	.tag-chip--active .tag-chip__count {
+		background: rgba(255, 255, 255, 0.18);
 	}
 
 	.blog-list-wrap {
@@ -279,6 +471,17 @@ getBlogList()
 		white-space: nowrap;
 	}
 
+	.blog-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	:deep(.blog-tags .el-tag) {
+		cursor: pointer;
+		border-radius: 999px;
+	}
+
 	.blog-summary {
 		margin: 0;
 		font-size: 15px;
@@ -328,6 +531,10 @@ getBlogList()
 		.blog-header {
 			flex-direction: column;
 			align-items: flex-start;
+		}
+
+		.tag-panel {
+			padding: 14px;
 		}
 
 		.blog-card {

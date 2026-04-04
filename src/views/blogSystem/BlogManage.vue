@@ -9,6 +9,20 @@
 				<div class="header-search">
 					<el-input v-model="search" placeholder="输入标题过滤" />
 				</div>
+				<div class="header-filter">
+					<el-select
+						v-model="selectedTag"
+						clearable
+						placeholder="按标签过滤"
+					>
+						<el-option
+							v-for="item in tagOptions"
+							:key="item"
+							:label="item"
+							:value="item"
+						/>
+					</el-select>
+				</div>
 				<div class="header-actions">
 					<el-button type="primary" @click="openCreate()">新增</el-button>
 					<el-button type="success" @click="getPostData()">刷新</el-button>
@@ -76,7 +90,7 @@
 
 		<BlogEditorDialog
 			v-model:visible="editorVisible"
-			title="编辑博客"
+			:title="editingId ? '编辑博客' : '新增博客'"
 			:form="editorForm"
 			:rules="editorRules"
 			:submitting="submitting"
@@ -97,18 +111,24 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { postDelete, postInfoPut, postListGet } from '@/apis/blogApis.js'
+import { postCreateReq, postDelete, postInfoPut, postListGet } from '@/apis/blogApis.js'
 import { ensureApiSuccess, isApiSuccess } from '@/common/requests/requests.js'
 import BlogEditorDialog from '@/views/blogSystem/components/BlogEditorDialog.vue'
 import BlogPreviewDialog from '@/views/blogSystem/components/BlogPreviewDialog.vue'
-import { formatDateTime, getContent, getRowId } from '@/views/blogSystem/blogHelpers.js'
+import {
+	formatDateTime,
+	getContent,
+	getRowId,
+	normalizeBlogTags,
+} from '@/views/blogSystem/blogHelpers.js'
+import { blog_tag_options } from '/public/config/blog_tags'
 
-const router = useRouter()
 const search = ref('')
+const selectedTag = ref('')
 const loading = ref(false)
 const tableData = ref([])
+const tagOptions = blog_tag_options
 
 const editorVisible = ref(false)
 const editingId = ref('')
@@ -134,6 +154,7 @@ const previewData = reactive({
 
 const editorRules = {
 	title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+	content: [{ required: true, message: '请输入正文内容', trigger: 'blur' }],
 }
 
 const resolveListData = (response) => {
@@ -145,9 +166,16 @@ const resolveListData = (response) => {
 }
 
 const filterTableData = computed(() => {
-	const keyword = search.value?.trim()?.toLowerCase()
-	if (!keyword) return tableData.value
-	return tableData.value.filter((row) => (row?.title || '').toLowerCase().includes(keyword))
+	const keyword = search.value.trim().toLowerCase()
+	const tag = selectedTag.value.trim()
+
+	return tableData.value.filter((row) => {
+		const matchKeyword = !keyword || String(row?.title || '').toLowerCase().includes(keyword)
+		if (!matchKeyword) return false
+
+		if (!tag) return true
+		return normalizeBlogTags(row?.tags).includes(tag)
+	})
 })
 
 const getCurrentUser = () => {
@@ -187,9 +215,9 @@ const getPostData = async () => {
 		}
 
 		tableData.value = resolveListData(response)
-	} catch (e) {
-		console.error('获取文章列表失败', e)
-		ElMessage.error(String(e?.message || '获取文章列表失败'))
+	} catch (error) {
+		console.error('获取文章列表失败', error)
+		ElMessage.error(String(error?.message || '获取文章列表失败'))
 		tableData.value = []
 	} finally {
 		loading.value = false
@@ -197,18 +225,15 @@ const getPostData = async () => {
 }
 
 const openCreate = () => {
-	router.push({
-		path: '/blogAdd',
-		query: {
-			from: 'blogManage',
-		},
-	})
+	editingId.value = ''
+	fillEditorForm()
+	editorVisible.value = true
 }
 
 const openEdit = (row) => {
 	const id = getRowId(row)
 	if (!id) {
-		ElMessage.warning('未找到文章id')
+		ElMessage.warning('未找到文章 id')
 		return
 	}
 
@@ -231,29 +256,31 @@ const handleEditorSubmit = async (formData) => {
 	if (submitting.value) return
 	submitting.value = true
 
-	if (!editingId.value) {
-		ElMessage.warning('未找到文章id')
-		submitting.value = false
-		return
-	}
+	try {
+		const response = editingId.value
+			? await postInfoPut(editingId.value, { ...formData })
+			: await postCreateReq({ ...formData })
 
-	const response = await postInfoPut(editingId.value, { ...formData })
-	if (!isApiSuccess(response)) {
-		ElMessage.error(String(response?.message || '保存失败'))
-		submitting.value = false
-		return
-	}
+		if (!isApiSuccess(response)) {
+			ElMessage.error(String(response?.message || '保存失败'))
+			return
+		}
 
-	ElMessage.success('保存成功')
-	editorVisible.value = false
-	submitting.value = false
-	await getPostData()
+		ElMessage.success(editingId.value ? '保存成功' : '新增成功')
+		editorVisible.value = false
+		await getPostData()
+	} catch (error) {
+		console.error('保存文章失败', error)
+		ElMessage.error(String(error?.message || '保存失败'))
+	} finally {
+		submitting.value = false
+	}
 }
 
 const handleDelete = async (row) => {
 	const id = getRowId(row)
 	if (!id) {
-		ElMessage.warning('未找到文章id')
+		ElMessage.warning('未找到文章 id')
 		return
 	}
 
@@ -296,7 +323,8 @@ getPostData()
 		flex-wrap: wrap;
 	}
 
-	.header-search {
+	.header-search,
+	.header-filter {
 		flex: 0 0 auto;
 	}
 
@@ -326,8 +354,13 @@ getPostData()
 		height: 100%;
 	}
 
-	:deep(.el-input) {
+	:deep(.header-search .el-input) {
 		width: 280px;
+		max-width: 100%;
+	}
+
+	:deep(.header-filter .el-select) {
+		width: 220px;
 		max-width: 100%;
 	}
 
@@ -358,7 +391,8 @@ getPostData()
 	}
 
 	@media (max-width: 900px) {
-		.header-search {
+		.header-search,
+		.header-filter {
 			width: 100%;
 		}
 
@@ -368,7 +402,8 @@ getPostData()
 			justify-content: flex-end;
 		}
 
-		:deep(.el-input) {
+		:deep(.header-search .el-input),
+		:deep(.header-filter .el-select) {
 			width: 100%;
 		}
 	}
