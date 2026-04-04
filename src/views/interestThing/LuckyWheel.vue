@@ -79,6 +79,22 @@
 				</div>
 
 				<aside class="side-panel">
+					<section class="panel-card wheel-config-entry-card">
+						<div class="panel-head">
+							<div>
+								<p class="panel-kicker">Config</p>
+								<h2>转盘配置</h2>
+							</div>
+						</div>
+
+						<div class="config-entry-card">
+							<p>支持配置奖项名称、图标和概率，保存后优先读取本地配置。</p>
+							<button class="primary-btn" type="button" :disabled="isSpinning" @click="showConfigDialog = true">
+								配置转盘
+							</button>
+						</div>
+					</section>
+
 					<section class="panel-card config-card">
 						<div class="panel-head">
 							<div>
@@ -265,6 +281,13 @@
 				</div>
 			</div>
 		</el-dialog>
+
+		<WheelConfigDialog
+			v-model="showConfigDialog"
+			:items="wheelItems"
+			@save="saveWheelConfig"
+			@reset="resetWheelConfig"
+		/>
 	</section>
 </template>
 
@@ -276,14 +299,67 @@ export default {
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+
+import WheelConfigDialog from './LuckyWheel/WheelConfigDialog.vue'
 import luckyItems from './LuckyItems'
 
 const normalizeAngle = (value) => ((value % 360) + 360) % 360
+const LUCKY_WHEEL_CONFIG_STORAGE_KEY = 'interestThing:luckyWheelConfig'
+const LABEL_CORRECTION_LEAD_PROGRESS = 0.92
+const LABEL_CORRECTION_SETTLE_MS = 260
+
+const normalizeWheelItem = (item = {}, index = 0, fallback = {}) => ({
+	id: item.id ?? fallback.id ?? `lucky-item-${index + 1}`,
+	label: item.label ?? item.name ?? fallback.label ?? fallback.name ?? `奖项${index + 1}`,
+	icon: item.icon ?? fallback.icon ?? '🎁',
+	color: item.color ?? fallback.color ?? '#ff8a65',
+	percentage:
+		Number(item.percentage) > 0
+			? Number(item.percentage)
+			: Number(fallback.percentage) > 0
+				? Number(fallback.percentage)
+				: 1,
+	description: item.description ?? fallback.description ?? '未配置描述',
+})
+
+const createDefaultWheelItems = () =>
+	(Array.isArray(legacyWheelItems?.value) ? legacyWheelItems.value : Array.isArray(luckyItems) ? luckyItems : []).map((item, index) =>
+		normalizeWheelItem(item, index),
+	)
+
+const readLocalWheelConfig = () => {
+	if (typeof localStorage === 'undefined') return null
+
+	try {
+		const rawValue = localStorage.getItem(LUCKY_WHEEL_CONFIG_STORAGE_KEY)
+		if (!rawValue) return null
+		const parsedValue = JSON.parse(rawValue)
+		return Array.isArray(parsedValue) ? parsedValue : null
+	} catch (error) {
+		console.warn('Failed to read lucky wheel config from localStorage:', error)
+		return null
+	}
+}
+
+const buildWheelItemsFromConfig = (configItems) => {
+	const defaultItems = createDefaultWheelItems()
+	if (!Array.isArray(configItems) || !configItems.length) {
+		return defaultItems
+	}
+
+	const normalizedItems = configItems.slice(0, 9).map((configItem, index) => {
+		const fallbackItem = defaultItems[index % defaultItems.length] || defaultItems[0] || {}
+		return normalizeWheelItem(configItem, index, fallbackItem)
+	})
+
+	return normalizedItems.length >= 2 ? normalizedItems : defaultItems
+}
 
 const wheelDiskRef = ref(null)
 const wheelWrapRef = ref(null)
 const wheelDiameter = ref(560)
-const wheelItems = ref(
+const legacyWheelItems = ref(
 	Array.isArray(luckyItems)
 		? luckyItems.map((item, index) => ({
 				id: item.id ?? `lucky-item-${index + 1}`,
@@ -299,12 +375,15 @@ const isSpinning = ref(false)
 const rotation = ref(0)
 const currentResult = ref(null)
 const spinRecords = ref([])
+const wheelItems = ref(buildWheelItemsFromConfig(readLocalWheelConfig()))
+const showConfigDialog = ref(false)
 const showHistoryDialog = ref(false)
 const showPrizeDialog = ref(false)
 const showResultDialog = ref(false)
 let rotationFrame = null
 let wheelResizeObserver = null
 let removeWheelResizeListener = null
+let resultDialogTimer = null
 
 const canSpin = computed(() => wheelItems.value.length >= 2)
 
@@ -348,7 +427,8 @@ const wheelSegments = computed(() => {
 			centerAngle,
 			labelStyle: {
 				width: `${labelWidth}px`,
-				transform: `translate(-50%, -50%) rotate(${centerAngle}deg) translateY(-${labelRadius}px) rotate(${-centerAngle}deg)`,
+				'--segment-angle': `${centerAngle}deg`,
+				'--label-radius': `${labelRadius}px`,
 			},
 		}
 		startAngle += spanAngle
@@ -385,11 +465,47 @@ const resetRecords = () => {
 	showResultDialog.value = false
 }
 
+const saveWheelConfig = (items = []) => {
+	const sanitizedItems = buildWheelItemsFromConfig(items)
+	const localConfig = sanitizedItems.map((item) => ({
+		id: item.id,
+		label: item.label,
+		icon: item.icon,
+		percentage: item.percentage,
+	}))
+
+	wheelItems.value = sanitizedItems
+	if (typeof localStorage !== 'undefined') {
+		localStorage.setItem(LUCKY_WHEEL_CONFIG_STORAGE_KEY, JSON.stringify(localConfig))
+	}
+	ElMessage.success('转盘配置已保存')
+}
+
+const resetWheelConfig = () => {
+	wheelItems.value = createDefaultWheelItems()
+	if (typeof localStorage !== 'undefined') {
+		localStorage.removeItem(LUCKY_WHEEL_CONFIG_STORAGE_KEY)
+	}
+	ElMessage.success('已恢复默认转盘配置')
+}
+
 const easeOutCubic = (t) => 1 - (1 - t) ** 3
 
-const setDiskRotation = (angle) => {
+const setWheelLabelRotation = (angle) => {
+	if (wheelDiskRef.value) {
+		wheelDiskRef.value.style.setProperty('--wheel-rotation', `${angle}deg`)
+	}
+}
+
+const setDiskRotation = (angle, options = {}) => {
+	const { syncLabelRotation = false } = options
+
 	if (wheelDiskRef.value) {
 		wheelDiskRef.value.style.transform = `translateZ(0) rotate(${angle}deg)`
+	}
+
+	if (syncLabelRotation) {
+		setWheelLabelRotation(angle)
 	}
 }
 
@@ -404,7 +520,13 @@ const animateRotation = ({ from, to, duration, onComplete }) => {
 		rotationFrame = null
 	}
 
+	if (resultDialogTimer) {
+		clearTimeout(resultDialogTimer)
+		resultDialogTimer = null
+	}
+
 	const startTime = performance.now()
+	let hasPreCorrected = false
 
 	const step = (now) => {
 		const progress = Math.min((now - startTime) / duration, 1)
@@ -412,13 +534,18 @@ const animateRotation = ({ from, to, duration, onComplete }) => {
 		const nextRotation = from + (to - from) * eased
 		setDiskRotation(nextRotation)
 
+		if (!hasPreCorrected && progress >= LABEL_CORRECTION_LEAD_PROGRESS) {
+			setWheelLabelRotation(to)
+			hasPreCorrected = true
+		}
+
 		if (progress < 1) {
 			rotationFrame = requestAnimationFrame(step)
 			return
 		}
 
 		rotation.value = to
-		setDiskRotation(to)
+		setDiskRotation(to, { syncLabelRotation: true })
 		rotationFrame = null
 		onComplete?.()
 	}
@@ -454,14 +581,17 @@ const spinWheel = () => {
 			rotation.value = normalizeAngle(finalRotation)
 			currentResult.value = targetItem
 			appendRecord(targetItem)
-			showResultDialog.value = true
-			isSpinning.value = false
+			resultDialogTimer = setTimeout(() => {
+				showResultDialog.value = true
+				isSpinning.value = false
+				resultDialogTimer = null
+			}, LABEL_CORRECTION_SETTLE_MS)
 		},
 	})
 }
 
 onMounted(() => {
-	setDiskRotation(rotation.value)
+	setDiskRotation(rotation.value, { syncLabelRotation: true })
 	updateWheelDiameter()
 	if (typeof ResizeObserver !== 'undefined' && wheelWrapRef.value) {
 		wheelResizeObserver = new ResizeObserver((entries) => {
@@ -485,6 +615,10 @@ onBeforeUnmount(() => {
 	if (rotationFrame) {
 		cancelAnimationFrame(rotationFrame)
 		rotationFrame = null
+	}
+	if (resultDialogTimer) {
+		clearTimeout(resultDialogTimer)
+		resultDialogTimer = null
 	}
 })
 </script>
@@ -554,7 +688,7 @@ onBeforeUnmount(() => {
 	padding: 20px;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
+	justify-content: flex-start;
 	gap: 20px;
 }
 
@@ -583,6 +717,7 @@ onBeforeUnmount(() => {
 .record-content p,
 .winner-info p,
 .source-card p,
+.config-entry-card p,
 .preview-content p,
 .history-dialog-toolbar p,
 .history-dialog-empty p {
@@ -591,10 +726,13 @@ onBeforeUnmount(() => {
 }
 
 .wheel-stage {
-	display: grid;
-	align-content: start;
-	gap: 12px;
-	justify-items: center;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: 16px;
+	min-height: 0;
 }
 
 .wheel-wrap {
@@ -714,6 +852,7 @@ onBeforeUnmount(() => {
 	left: 50%;
 	top: 50%;
 	transform-origin: center center;
+	transform: translate(-50%, -50%) rotate(var(--segment-angle)) translateY(calc(var(--label-radius) * -1));
 	z-index: 1;
 }
 
@@ -722,6 +861,8 @@ onBeforeUnmount(() => {
 	display: grid;
 	justify-items: center;
 	gap: 6px;
+	transform: rotate(calc((var(--wheel-rotation, 0deg) + var(--segment-angle)) * -1));
+	transition: transform 0.24s ease-out;
 	color: #fffaf3;
 	text-shadow: 0 2px 6px rgba(103, 57, 33, 0.26);
 }
@@ -899,8 +1040,10 @@ onBeforeUnmount(() => {
 
 .side-panel {
 	display: grid;
+	grid-template-rows: repeat(2, minmax(0, 1fr));
 	align-content: stretch;
-	gap: 0;
+	gap: 10px;
+	min-height: 0;
 }
 
 .panel-card {
@@ -908,6 +1051,8 @@ onBeforeUnmount(() => {
 	display: grid;
 	align-content: start;
 	gap: 14px;
+	min-height: 0;
+	height: 100%;
 }
 
 .config-card {
@@ -922,11 +1067,35 @@ onBeforeUnmount(() => {
 }
 
 .source-card,
-.record-entry-card {
+.record-entry-card,
+.config-entry-card {
 	padding: 16px;
 	border-radius: 20px;
 	background: rgba(255, 252, 247, 0.92);
 	border: 1px solid rgba(255, 255, 255, 0.72);
+}
+
+.config-entry-card {
+	display: grid;
+	gap: 14px;
+	align-content: start;
+	min-height: 0;
+	height: 100%;
+}
+
+.record-card,
+.wheel-config-entry-card,
+.record-entry-card {
+	min-height: 0;
+}
+
+.record-card {
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+.record-entry-card {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .source-path {
@@ -1248,6 +1417,7 @@ onBeforeUnmount(() => {
 
 	.side-panel {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-rows: none;
 	}
 }
 

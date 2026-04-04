@@ -23,7 +23,7 @@
 				</div>
 			</div>
 
-			<div class="editor-meta">
+			<div v-if="false" class="editor-meta">
 				<el-tag v-if="form.is_top" type="danger" effect="light">置顶</el-tag>
 				<el-tag v-for="item in currentTags" :key="item" effect="plain">{{ item }}</el-tag>
 				<span v-if="uploadingPasteImage" class="upload-status">图片上传中...</span>
@@ -104,6 +104,48 @@ const routeSource = computed(() => String(route.query?.from || '').trim())
 const showBackButton = computed(() => Boolean(routeSource.value))
 const currentTags = computed(() => normalizeBlogTags(form.tags))
 
+const desktopToolbar = [
+	'emoji',
+	'headings',
+	'bold',
+	'italic',
+	'strike',
+	'link',
+	'|',
+	'list',
+	'ordered-list',
+	'check',
+	'quote',
+	'line',
+	'code',
+	'inline-code',
+	'table',
+	'upload',
+	'|',
+	'undo',
+	'redo',
+	'outline',
+]
+
+const mobileToolbar = [
+	'emoji',
+	'headings',
+	'bold',
+	'italic',
+	'link',
+	'list',
+	'ordered-list',
+	'check',
+	'quote',
+	'undo',
+	'redo',
+]
+
+const resolveToolbar = () => {
+	if (typeof window === 'undefined') return desktopToolbar
+	return window.innerWidth <= 640 ? mobileToolbar : desktopToolbar
+}
+
 const goBack = () => {
 	if (window.history.length > 1) {
 		router.back()
@@ -180,15 +222,21 @@ const normalizeToolbarLayout = () => {
 	toolbar.style.display = 'flex'
 	toolbar.style.justifyContent = 'center'
 	toolbar.style.alignItems = 'center'
+	toolbar.style.flexWrap = 'wrap'
+	toolbar.style.height = 'auto'
+	toolbar.style.whiteSpace = 'normal'
 
 	const items = toolbar.querySelector('.vditor-toolbar__items')
 	if (items) {
 		items.style.display = 'flex'
-		items.style.justifyContent = 'center'
+		items.style.justifyContent = 'flex-start'
 		items.style.alignItems = 'center'
 		items.style.flexWrap = 'wrap'
 		items.style.width = '100%'
+		items.style.maxWidth = '100%'
 		items.style.margin = '0 auto'
+		items.style.whiteSpace = 'normal'
+		items.style.rowGap = '6px'
 	}
 }
 
@@ -237,28 +285,7 @@ const initVditor = async () => {
 		toolbarConfig: {
 			pin: true,
 		},
-		toolbar: [
-			'emoji',
-			'headings',
-			'bold',
-			'italic',
-			'strike',
-			'link',
-			'|',
-			'list',
-			'ordered-list',
-			'check',
-			'quote',
-			'line',
-			'code',
-			'inline-code',
-			'table',
-			'upload',
-			'|',
-			'undo',
-			'redo',
-			'outline',
-		],
+		toolbar: resolveToolbar(),
 		upload: {
 			accept: 'image/*',
 			max: 10 * 1024 * 1024,
@@ -430,12 +457,14 @@ onBeforeUnmount(() => {
 		--editor-toolbar-bg: rgba(250, 252, 255, 0.94);
 		--editor-toolbar-border: rgba(214, 224, 234, 0.92);
 		--editor-vditor-bg: rgba(249, 251, 253, 0.98);
+		--editor-page-bg: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(243, 247, 251, 0.98));
 
 		height: 100%;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
 		padding: 16px;
+		background: var(--editor-page-bg);
 
 		.home-view-title {
 			padding: 4px 4px 0;
@@ -455,12 +484,9 @@ onBeforeUnmount(() => {
 			flex-direction: column;
 			gap: 18px;
 			padding: 22px;
-			border: 1px solid rgba(216, 225, 234, 0.9);
 			border-radius: 28px;
-			background:
-				radial-gradient(circle at top right, rgba(226, 236, 246, 0.92), transparent 28%),
-				linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(245, 248, 251, 0.94));
-			box-shadow: var(--editor-shadow);
+			background: transparent;
+			box-shadow: none;
 		}
 
 		.editor-toolbar {
@@ -480,8 +506,20 @@ onBeforeUnmount(() => {
 			flex-wrap: wrap;
 		}
 
+		.toolbar-left {
+			flex: 1 1 420px;
+			min-width: 0;
+		}
+
+		.toolbar-right {
+			flex: 0 0 auto;
+			justify-content: flex-end;
+		}
+
 		.title-input {
+			flex: 1 1 320px;
 			width: min(520px, calc(100vw - 180px));
+			min-width: 220px;
 
 			:deep(.el-input__wrapper) {
 				min-height: 46px;
@@ -655,8 +693,11 @@ onBeforeUnmount(() => {
 			display: flex;
 			justify-content: center;
 			align-items: center;
+			flex-wrap: wrap;
 			width: 100%;
 			box-sizing: border-box;
+			height: auto;
+			white-space: normal;
 		}
 
 		:deep(.vditor-toolbar.vditor-toolbar--pin) {
@@ -677,12 +718,14 @@ onBeforeUnmount(() => {
 
 		:deep(.vditor-toolbar__items) {
 			display: flex;
-			justify-content: center;
+			justify-content: flex-start;
 			align-items: center;
 			flex-wrap: wrap;
 			gap: 6px;
 			width: 100%;
+			max-width: 100%;
 			margin: 0 auto;
+			white-space: normal;
 		}
 
 		:deep(.vditor-toolbar__br) {
@@ -843,17 +886,52 @@ onBeforeUnmount(() => {
 				border-radius: 22px;
 			}
 
-			.title-input {
-				width: 100%;
-			}
-
 			.toolbar-left,
 			.toolbar-right {
 				width: 100%;
 			}
 
+			.toolbar-left {
+				align-items: stretch;
+				gap: 10px;
+			}
+
 			.toolbar-right {
-				justify-content: flex-end;
+				justify-content: space-between;
+				gap: 8px;
+			}
+
+			.toolbar-left > .el-button {
+				min-width: 92px;
+			}
+
+			.title-input {
+				width: 100%;
+				flex: 0 0 auto;
+				min-width: 0;
+			}
+
+			.toolbar-right > .el-radio-group {
+				flex: 1 1 auto;
+				min-width: 0;
+				display: flex;
+			}
+
+			.toolbar-right > .el-radio-group :deep(.el-radio-button) {
+				flex: 1 1 0;
+			}
+
+			.toolbar-right > .el-radio-group :deep(.el-radio-button__inner) {
+				width: 100%;
+				padding-inline: 8px;
+			}
+
+			.toolbar-right > .el-button:first-of-type {
+				margin-left: auto;
+			}
+
+			.toolbar-right > .el-button:last-of-type {
+				min-width: 92px;
 			}
 
 			.vditor-shell {
@@ -866,11 +944,142 @@ onBeforeUnmount(() => {
 			}
 
 			:deep(.vditor-toolbar) {
-				padding: 12px 14px 10px;
+				padding: 10px 10px 8px;
+				overflow: hidden;
+				justify-content: flex-start;
+				align-items: flex-start;
+			}
+
+			:deep(.vditor-toolbar__items) {
+				justify-content: flex-start;
+				gap: 4px;
+				width: 100%;
+				max-width: 100%;
+				overflow: hidden;
+				align-content: flex-start;
+			}
+
+			:deep(.vditor-toolbar__item) {
+				min-width: 32px;
+				height: 32px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				float: none !important;
+			}
+
+			:deep(.vditor-toolbar__divider) {
+				float: none !important;
+			}
+
+			:deep(.vditor-toolbar__divider) {
+				display: none !important;
 			}
 
 			:deep(.vditor-outline) {
 				display: none;
+			}
+		}
+
+		@media (max-width: 640px) {
+			.blog-add-main {
+				padding: 14px;
+				gap: 14px;
+			}
+
+			.editor-toolbar {
+				gap: 12px;
+				padding: 0;
+			}
+
+			.toolbar-left {
+				flex-direction: column;
+			}
+
+			.toolbar-left > .el-button {
+				width: 100%;
+			}
+
+			.title-input {
+				flex: 0 0 auto;
+			}
+
+			.toolbar-right {
+				display: flex;
+				flex-wrap: nowrap;
+				justify-content: space-between;
+				align-items: center;
+				gap: 6px;
+			}
+
+			.toolbar-right > .el-radio-group {
+				flex: 1 1 auto;
+				width: auto;
+				min-width: 0;
+			}
+
+			.toolbar-right > .el-button:first-of-type {
+				margin-left: 0;
+				flex: 0 0 40px;
+			}
+
+			.toolbar-right > .el-button:last-of-type {
+				flex: 0 0 auto;
+				min-width: 84px;
+				padding-inline: 14px;
+			}
+
+			.toolbar-right > .el-radio-group :deep(.el-radio-button__inner) {
+				padding-inline: 6px;
+				font-size: 13px;
+			}
+
+			.editor-shell {
+				padding: 0;
+			}
+
+			.editor-pane,
+			.visual-editor-pane,
+			:deep(.vditor),
+			.editor-textarea {
+				border-radius: 20px;
+			}
+
+			.editor-textarea,
+			:deep(.vditor-wysiwyg) {
+				padding: 18px 16px;
+			}
+
+			:deep(.vditor-toolbar) {
+				padding: 10px 8px 8px;
+				border-radius: 20px 20px 0 0;
+				overflow: hidden;
+				justify-content: flex-start;
+				align-items: flex-start;
+			}
+
+			:deep(.vditor-toolbar__items) {
+				row-gap: 6px;
+				column-gap: 4px;
+				width: 100%;
+				max-width: 100%;
+				padding-left: 0;
+				margin-left: 0;
+				align-content: flex-start;
+			}
+
+			:deep(.vditor-toolbar__item) {
+				min-width: 30px;
+				height: 30px;
+				float: none !important;
+			}
+
+			:deep(.vditor-toolbar__divider) {
+				float: none !important;
+			}
+
+			:deep(.vditor-toolbar__divider) {
+				display: none !important;
 			}
 		}
 	}
