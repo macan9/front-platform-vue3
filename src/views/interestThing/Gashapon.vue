@@ -835,6 +835,7 @@ onBeforeUnmount(() => {
 <style lang="scss">
 .gashapon-page.home-view-page {
 	position: relative;
+	--gashapon-main-height-cap: 930px;
 	height: 100%;
 	min-height: 0;
 	overflow: hidden !important;
@@ -1034,17 +1035,20 @@ onBeforeUnmount(() => {
 	display: grid;
 	grid-template-columns: minmax(280px, 1.2fr) minmax(240px, 0.8fr);
 	min-height: 0;
-	height: min(100%, calc(100dvh - 150px));
+	height: min(100%, min(calc(100dvh - 150px), var(--gashapon-main-height-cap)));
 	gap: min(30px, 2.8vw);
 	align-items: stretch;
 }
 
 .machine-body {
 	position: relative;
-	width: min(100%, 520px);
+	display: flex;
+	flex-direction: column;
+	justify-content: space-around;
+	width: min(100%, 550px);
 	height: 100%;
 	margin: 0 auto;
-	padding: 14px 14px 16px;
+	padding: 14px 40px 16px;
 	border-radius: 28px;
 	background: linear-gradient(180deg, #ff6b3d 0%, #ec512a 48%, #c73314 100%);
 	box-shadow:
@@ -1057,7 +1061,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	justify-content: center;
 	gap: 12px;
-	margin-bottom: 8px;
+	margin-bottom: 0;
 }
 
 .machine-lights span {
@@ -1079,7 +1083,8 @@ onBeforeUnmount(() => {
 
 .machine-window {
 	position: relative;
-	height: clamp(272px, 38vh, 320px);
+	flex: 0 0 auto;
+	height: clamp(272px, 38vh, 400px);
 	padding: 14px;
 	border-radius: 24px;
 	background:
@@ -1238,10 +1243,11 @@ onBeforeUnmount(() => {
 
 .control-area {
 	display: flex;
+	flex: 0 0 auto;
 	justify-content: space-between;
 	align-items: center;
 	gap: 16px;
-	padding: 12px 4px 6px;
+	padding: 8px 4px;
 }
 
 .coin-slot {
@@ -1309,8 +1315,12 @@ onBeforeUnmount(() => {
 }
 
 .machine-bottom {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	gap: 14px;
 	margin-top: 2px;
-	padding: 4px 4px 0;
+	padding: 8px 4px 0;
 }
 
 .tray-header {
@@ -1419,6 +1429,7 @@ onBeforeUnmount(() => {
 
 .my-gashapon-panel {
 	min-height: 0;
+	margin-bottom: 10px;
 }
 
 .panel-kicker {
@@ -1671,7 +1682,23 @@ onBeforeUnmount(() => {
 	.machine-main {
 		grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.7fr);
 		gap: 24px;
-		height: min(100%, calc(100dvh - 142px));
+		height: min(100%, min(calc(100dvh - 142px), var(--gashapon-main-height-cap)));
+	}
+}
+
+@media (min-height: 1200px) {
+	.gashapon-page.home-view-page {
+		--gashapon-main-height-cap: 980px;
+	}
+
+	.machine-main {
+		align-items: start;
+	}
+
+	.machine-body {
+		height: min(100%, 860px);
+		min-height: 760px;
+		max-height: 860px;
 	}
 }
 

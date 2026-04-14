@@ -1,18 +1,13 @@
 <template>
 	<el-dialog
 		:model-value="visible"
-		:title="title"
 		width="820px"
 		destroy-on-close
 		align-center
-		:class="['blog-editor-dialog', { 'blog-editor-dialog--titleless': !title }]"
+		class="blog-add-settings-dialog"
 		@close="handleClose"
 	>
 		<el-form ref="formRef" :model="localForm" :rules="rules" label-width="92px">
-			<el-form-item label="标题" prop="title">
-				<el-input v-model="localForm.title" class="field-limit" placeholder="请输入标题" />
-			</el-form-item>
-
 			<el-form-item label="封面图" prop="cover_image">
 				<div class="cover-editor">
 					<div v-if="localForm.cover_image" class="cover-preview">
@@ -67,21 +62,7 @@
 			</el-form-item>
 
 			<el-form-item label="摘要" prop="summary">
-				<el-input
-					v-model="localForm.summary"
-					type="textarea"
-					:rows="3"
-					placeholder="可选"
-				/>
-			</el-form-item>
-
-			<el-form-item label="正文" prop="content">
-				<el-input
-					v-model="localForm.content"
-					type="textarea"
-					:rows="14"
-					placeholder="请输入博客正文，支持 Markdown"
-				/>
+				<el-input v-model="localForm.summary" placeholder="可选" />
 			</el-form-item>
 		</el-form>
 
@@ -112,14 +93,9 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
-	title: {
-		type: String,
-		default: '',
-	},
 	form: {
 		type: Object,
 		default: () => ({
-			title: '',
 			summary: '',
 			content: '',
 			cover_image: '',
@@ -144,7 +120,6 @@ const uploadingCover = ref(false)
 const tagOptions = blog_tag_options
 
 const localForm = reactive({
-	title: '',
 	summary: '',
 	content: '',
 	cover_image: '',
@@ -153,7 +128,6 @@ const localForm = reactive({
 })
 
 const syncForm = (value = {}) => {
-	localForm.title = value?.title || ''
 	localForm.summary = value?.summary || ''
 	localForm.content = value?.content || ''
 	localForm.cover_image = value?.cover_image || value?.cover || value?.coverUrl || ''
@@ -236,41 +210,26 @@ const handleSubmit = async () => {
 </script>
 
 <style lang="scss">
-.blog-editor-dialog {
+.blog-add-settings-dialog {
 	.el-dialog {
 		margin: 0 auto;
 	}
 
+	.el-dialog__header {
+		padding: 0;
+		min-height: 0;
+	}
+
 	.el-dialog__body {
-		max-height: calc(90vh - 92px);
+		max-height: calc(90vh - 68px);
 		overflow-y: auto;
+		padding-top: 26px;
 		padding-right: 32px;
 	}
 
-	.el-dialog__header {
-		padding: 18px 24px 0;
-	}
-
 	.el-dialog__headerbtn {
-		top: 14px;
-		right: 14px;
-	}
-
-	&.blog-editor-dialog--titleless {
-		.el-dialog__header {
-			padding: 0;
-			min-height: 0;
-		}
-
-		.el-dialog__body {
-			max-height: calc(90vh - 68px);
-			padding-top: 26px;
-		}
-
-		.el-dialog__headerbtn {
-			top: 16px;
-			right: 16px;
-		}
+		top: 16px;
+		right: 16px;
 	}
 }
 
@@ -327,21 +286,15 @@ const handleSubmit = async () => {
 }
 
 @media (max-width: 900px) {
-	.blog-editor-dialog {
+	.blog-add-settings-dialog {
 		.el-dialog {
 			width: calc(100vw - 24px) !important;
 		}
 
 		.el-dialog__body {
-			max-height: calc(100vh - 96px);
+			max-height: calc(100vh - 80px);
+			padding-top: 22px;
 			padding-right: 20px;
-		}
-
-		&.blog-editor-dialog--titleless {
-			.el-dialog__body {
-				max-height: calc(100vh - 80px);
-				padding-top: 22px;
-			}
 		}
 	}
 

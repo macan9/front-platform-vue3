@@ -12,13 +12,26 @@
 					<div class="detail-main">
 						<div class="detail-head">
 							<div class="title-wrap">
-								<el-button text class="back-button" @click="goBack">返回</el-button>
 								<h1 class="detail-title">{{ blogDetail.title || '未命名博客' }}</h1>
 							</div>
 
-							<div class="detail-meta">
-								<div class="meta-author">{{ author }}</div>
-								<div class="meta-time">{{ publishTime }}</div>
+							<div class="head-side">
+								<div class="detail-actions">
+									<el-button
+										v-if="canEdit"
+										text
+										class="head-action-button"
+										@click="openEdit"
+									>
+										编辑
+									</el-button>
+									<el-button text class="head-action-button back-button" @click="goBack">返回</el-button>
+								</div>
+
+								<div class="detail-meta">
+									<div class="meta-author">{{ author }}</div>
+									<div class="meta-time">{{ publishTime }}</div>
+								</div>
 							</div>
 						</div>
 
@@ -31,16 +44,25 @@
 				</div>
 			</template>
 		</el-skeleton>
+
+		<BlogAddEditorDialog
+			v-model:visible="editorVisible"
+			:form="editorForm"
+			:submitting="submitting"
+			@submit="handleEditorSubmit"
+		/>
 	</div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import 'highlight.js/styles/atom-one-light.css'
-import { postSingleInfoGet } from '@/apis/blogApis.js'
+import { postInfoPut, postSingleInfoGet } from '@/apis/blogApis.js'
+import { isApiSuccess } from '@/common/requests/requests.js'
 import { renderMarkdown } from '@/utils/markdown.js'
+import BlogAddEditorDialog from '@/views/blogSystem/components/BlogAddEditorDialog.vue'
 import {
 	detailCoverList,
 	formatDateTime,
@@ -48,6 +70,7 @@ import {
 	getContent,
 	getCover,
 	getRandomCover,
+	getRowId,
 	getSummary,
 } from '@/views/blogSystem/blogHelpers.js'
 
@@ -57,9 +80,65 @@ const router = useRouter()
 const loading = ref(false)
 const blogDetail = ref(null)
 const coverUrl = ref(getRandomCover(detailCoverList))
+const editorVisible = ref(false)
+const submitting = ref(false)
+const editorForm = reactive({
+	title: '',
+	summary: '',
+	content: '',
+	cover_image: '',
+	tags: '',
+	is_top: false,
+})
+
+const parseStorage = (value) => {
+	const raw = String(value || '').trim()
+	if (!raw) return null
+
+	try {
+		return JSON.parse(raw)
+	} catch (error) {
+		console.error('解析本地用户信息失败', error)
+		return null
+	}
+}
+
+const currentUser = computed(() => {
+	return parseStorage(localStorage.getItem('userInfo'))?.user || {}
+})
+
+const ownerId = computed(() => {
+	const detail = blogDetail.value || {}
+	return String(
+		detail?.userId
+		|| detail?.user_id
+		|| detail?.authorId
+		|| detail?.author_id
+		|| detail?.uid
+		|| detail?.created_by
+		|| detail?.create_by
+		|| detail?.user?.id
+		|| ''
+	).trim()
+})
 
 const author = computed(() => {
 	return blogDetail.value ? getAuthor(blogDetail.value) : ''
+})
+
+const canEdit = computed(() => {
+	const currentUserId = String(currentUser.value?.id || '').trim()
+	if (currentUserId && ownerId.value) {
+		return currentUserId === ownerId.value
+	}
+
+	const authorName = String(author.value || '').trim()
+	if (!authorName) return false
+
+	return [currentUser.value?.nickname, currentUser.value?.username]
+		.map((item) => String(item || '').trim())
+		.filter(Boolean)
+		.includes(authorName)
 })
 
 const publishTime = computed(() => {
@@ -83,6 +162,21 @@ const goBack = () => {
 	router.back()
 }
 
+const fillEditorForm = (row = {}) => {
+	editorForm.title = row?.title || ''
+	editorForm.summary = row?.summary || row?.desc || row?.description || ''
+	editorForm.content = getContent(row) || ''
+	editorForm.cover_image = row?.cover_image || row?.cover || row?.coverUrl || ''
+	editorForm.tags = row?.tags || ''
+	editorForm.is_top = Boolean(row?.is_top)
+}
+
+const openEdit = () => {
+	if (!blogDetail.value || !canEdit.value) return
+	fillEditorForm(blogDetail.value)
+	editorVisible.value = true
+}
+
 const loadBlogDetail = async () => {
 	const { id } = route.params
 	if (!id) {
@@ -103,6 +197,34 @@ const loadBlogDetail = async () => {
 		coverUrl.value = getRandomCover(detailCoverList)
 	} finally {
 		loading.value = false
+	}
+}
+
+const handleEditorSubmit = async (formData) => {
+	if (submitting.value) return
+
+	const id = getRowId(blogDetail.value) || String(route.params.id || '').trim()
+	if (!id) {
+		ElMessage.warning('未找到文章 id')
+		return
+	}
+
+	submitting.value = true
+	try {
+		const response = await postInfoPut(id, { ...formData })
+		if (!isApiSuccess(response)) {
+			ElMessage.error(String(response?.message || '保存失败'))
+			return
+		}
+
+		ElMessage.success('保存成功')
+		editorVisible.value = false
+		await loadBlogDetail()
+	} catch (error) {
+		console.error('保存文章失败', error)
+		ElMessage.error(String(error?.message || '保存失败'))
+	} finally {
+		submitting.value = false
 	}
 }
 
@@ -207,10 +329,28 @@ watch(
 		min-width: 0;
 	}
 
-	.back-button {
-		padding-left: 0;
-		margin-bottom: 10px;
+	.head-side {
+		flex: 0 0 auto;
+		min-width: 180px;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 18px;
+	}
+
+	.detail-actions {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 4px;
+	}
+
+	.head-action-button {
 		color: #6a7c90;
+	}
+
+	.back-button {
+		margin-left: 0;
 	}
 
 	.detail-title {
@@ -223,9 +363,6 @@ watch(
 	}
 
 	.detail-meta {
-		flex: 0 0 auto;
-		min-width: 180px;
-		padding-top: 42px;
 		text-align: right;
 		color: #6d7f93;
 	}
@@ -366,9 +503,19 @@ watch(
 			font-size: 28px;
 		}
 
+		.head-side {
+			width: 100%;
+			align-items: flex-start;
+			gap: 12px;
+		}
+
+		.detail-actions {
+			width: 100%;
+			justify-content: flex-start;
+		}
+
 		.detail-meta {
 			min-width: 0;
-			padding-top: 0;
 			text-align: left;
 		}
 

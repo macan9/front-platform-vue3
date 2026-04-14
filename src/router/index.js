@@ -16,7 +16,7 @@ const routes = [
       {
         path: '/blogAdd',
         name: 'blogAdd',
-        component: () => import('@/views/blogSystem/blogAdd.vue')
+        component: () => import('@/views/blogSystem/BlogAdd.vue')
       },
       {
         path: '/chatRoom',
